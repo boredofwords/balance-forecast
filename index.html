@@ -63,7 +63,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 </head>
 <body>
 <header>
-<div><h1>Household Financial Command Center</h1><p>Cash-flow forecasting preserved, with a new paycheck planner, bill actions, timeline, and goals.</p></div>
+<div><h1>Household Financial Command Center</h1><p>Cash-flow forecasting, paycheck planning, bill actions, timeline, and goals.</p></div>
 <div class="actions"><button class="secondary" onclick="exportData()">Export</button><label class="btn secondary">Import<input id="importFile" class="hidden" type="file" accept=".json" onchange="importData(event)"></label><button class="danger" onclick="resetData()">Reset baseline</button></div>
 </header>
 <main>
@@ -97,7 +97,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 <div class="switchline"><span>Include optional subscriptions</span><input id="includeOptional" type="checkbox" onchange="saveScenario()"></div>
 <div style="margin-top:10px"><label>Preferred balance floor</label><input id="floorInput" type="number" step="25" onchange="saveScenario()"></div>
 <div style="margin-top:10px"><label>SpotMe overdraft limit</label><input id="spotMeInput" type="number" step="25" onchange="saveScenario()"></div>
-<div style="margin-top:10px"><label>Landlord late fee estimate</label><input id="lateFeeInput" type="number" onchange="updateLateFee()"></div>
+
 </div>
 
 <div class="card wide"><div class="row"><h2>Forecast ledger</h2><div><label>Show through</label><select id="rangeSelect" onchange="renderAll()"><option value="30">30 days</option><option value="60">60 days</option><option value="90" selected>90 days</option><option value="180">180 days</option></select></div></div>
@@ -127,7 +127,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 <section id="goals" class="panel"><div class="grid"><div class="card full"><div class="row"><div><h2>Goals</h2><p class="note">Quarterly bonus and stock proceeds stay separate from ordinary bills and can be assigned here.</p></div><button class="primary" onclick="addGoal()">Add goal</button></div><div id="goalList"></div></div><div class="card full"><h2>Quarterly windfall planner</h2><div class="settingsgrid"><div><label>Expected windfall</label><input id="windfallAmount" type="number" value="10000" oninput="renderGoals()"></div><div><label>Emergency savings %</label><input id="windfallEmergency" type="number" value="40" oninput="renderGoals()"></div><div><label>Vacation %</label><input id="windfallVacation" type="number" value="20" oninput="renderGoals()"></div><div><label>Big-ticket items %</label><input id="windfallBig" type="number" value="40" oninput="renderGoals()"></div></div><div id="windfallResult" style="margin-top:12px"></div></div></div></section>
 
-<section id="settings" class="panel"><div class="grid"><div class="card full"><h2>Core settings</h2><div class="settingsgrid"><div><label>Current checking balance</label><input id="settingBalance" type="number" step=".01" onchange="saveSettings()"></div><div><label>Regular paycheck</label><input id="settingPaycheck" type="number" step=".01" onchange="saveSettings()"></div><div><label>Pay schedule</label><select id="settingPaySchedule" onchange="saveSettings()"><option value="semi">15th & month-end</option><option value="biweekly">Every 2 weeks</option></select></div><div><label>Forecast start</label><input id="settingStart" type="date" onchange="saveSettings()"></div></div><p class="note">Everything is stored in this browser. Export a backup before clearing browser data or moving devices.</p></div></div></section>
+<section id="settings" class="panel"><div class="grid"><div class="card full"><h2>Core settings</h2><div class="settingsgrid"><div><label>Current checking balance</label><input id="settingBalance" type="number" step=".01" onchange="saveSettings()"></div><div><label>Income name</label><input id="settingIncomeName" type="text" onchange="saveSettings()"></div><div><label>Regular paycheck</label><input id="settingPaycheck" type="number" step=".01" onchange="saveSettings()"></div><div><label>Pay schedule</label><select id="settingPaySchedule" onchange="saveSettings()"><option value="semi">15th & month-end</option><option value="biweekly">Every 2 weeks</option></select></div><div><label>Forecast start</label><input id="settingStart" type="date" onchange="saveSettings()"></div></div><p class="note">Everything is stored in this browser. Export a backup before clearing browser data or moving devices.</p></div></div></section>
 </main>
 
 <div id="moveModal" class="modal-backdrop" onclick="closeMoveModal(event)">
@@ -178,22 +178,19 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 
 <script>
-const APP_VERSION=22;
+const APP_VERSION=24;
 const BASELINE={
- appVersion:APP_VERSION,startDate:"2026-08-03",currentBalance:-125.34,paycheck:3794.09,paySchedule:"semi",floor:300,spotMeLimit:200,includeWindfall:false,includeOptional:true,
+ appVersion:APP_VERSION,startDate:"2026-08-03",currentBalance:-125.34,incomeName:"Salary",paycheck:3794.09,paySchedule:"semi",floor:300,spotMeLimit:200,includeWindfall:false,includeOptional:true,
  recurring:[
- {id:"pay",name:"Indeed paycheck",amount:3794.09,direction:"income",date:"2026-08-15",frequency:"semimonthly",category:"Income",optional:false,priority:"critical"},
+ {id:"pay",name:"Salary",amount:3794.09,direction:"income",date:"2026-08-15",frequency:"semimonthly",category:"Income",optional:false,priority:"critical"},
  {id:"mypay",name:"MyPay repayment",amount:500,direction:"expense",date:"2026-08-15",frequency:"one",category:"Debt",optional:false,priority:"critical"},
  {id:"mypayfee",name:"MyPay fee",amount:5,direction:"expense",date:"2026-08-15",frequency:"one",category:"Debt",optional:false,priority:"critical"},
- {id:"rentcatch",name:"Rent catch-up",amount:475,direction:"expense",date:"2026-08-15",frequency:"one",category:"Housing",optional:false,priority:"critical"},
- {id:"latefee",name:"Landlord late fee",amount:0,direction:"expense",date:"2026-08-15",frequency:"one",category:"Housing",optional:false,priority:"high"},
  {id:"bridgecrest",name:"Bridgecrest car payment",amount:779,direction:"expense",date:"2026-08-15",frequency:"monthly",category:"Transportation",optional:false,priority:"critical"},
  {id:"geico",name:"GEICO",amount:279.36,direction:"expense",date:"2026-08-15",frequency:"monthly",category:"Insurance",optional:false,priority:"critical"},
  {id:"verizon",name:"Verizon catch-up",amount:361,direction:"expense",date:"2026-08-15",frequency:"one",category:"Bills",optional:false,priority:"high"},
  {id:"instantloan",name:"Instant loan payment",amount:73.33,direction:"expense",date:"2026-08-15",frequency:"monthly",category:"Debt",optional:false,priority:"high"},
- {id:"regional1",name:"Regional Finance",amount:229.95,direction:"expense",date:"2026-08-16",frequency:"monthly",category:"Debt",optional:false,priority:"high"},
  {id:"utilities",name:"City utilities",amount:452.13,direction:"expense",date:"2026-08-22",frequency:"monthly",category:"Bills",optional:false,priority:"critical"},
- {id:"regional2",name:"Regional Finance second payment",amount:244.40,direction:"expense",date:"2026-08-28",frequency:"monthly",category:"Debt",optional:false,priority:"high"},
+ {id:"regional2",name:"Regional Finance",amount:244.40,direction:"expense",date:"2026-08-28",frequency:"monthly",category:"Debt",optional:false,priority:"high"},
  {id:"spectrum",name:"Spectrum",amount:255.50,direction:"expense",date:"2026-08-31",frequency:"monthly",category:"Bills",optional:false,priority:"high"},
  {id:"rent",name:"Rent",amount:2595,direction:"expense",date:"2026-09-01",frequency:"monthly",category:"Housing",optional:false,priority:"critical"},
  {id:"groceries",name:"Groceries & household reserve",amount:350,direction:"expense",date:"2026-08-16",frequency:"semimonthly",category:"Food",optional:false,priority:"critical"},
@@ -216,6 +213,30 @@ function migrate(s){
  s=s||clone(BASELINE); s.oneTime=s.oneTime||[];s.exceptions=s.exceptions||[];s.archived=s.archived||[];s.paused=s.paused||[];s.goals=s.goals||clone(BASELINE.goals);
  if(s.spotMeLimit==null)s.spotMeLimit=200;if(s.floor==null)s.floor=300;if(s.includeOptional==null)s.includeOptional=true;
  (s.recurring||[]).forEach(x=>{if(!x.priority)x.priority=x.optional?"flexible":"high"});
+ // Privacy + August plan migration for existing saved browser data.
+ s.incomeName=s.incomeName||"Salary";
+ const payItem=(s.recurring||[]).find(x=>x.id==="pay");
+ if(payItem) payItem.name=s.incomeName;
+ s.recurring=(s.recurring||[]).filter(x=>!["rentcatch","latefee","regional1"].includes(x.id));
+ const regional=(s.recurring||[]).find(x=>x.id==="regional2");
+ if(regional) regional.name="Regional Finance";
+ s.exceptions=(s.exceptions||[]).filter(x=>!["rentcatch","latefee","regional1"].includes(x.id));
+
+ // Privacy + plan migration for existing browser data.
+ const payItem=(s.recurring||[]).find(x=>x.id==="pay");
+ if(payItem) payItem.name=s.incomeName||"Salary";
+ s.incomeName=s.incomeName||"Salary";
+
+ // Remove obsolete catch-up obligations from future planning.
+ s.recurring=(s.recurring||[]).filter(x=>!["rentcatch","latefee","regional1"].includes(x.id));
+
+ // Make the remaining Regional Finance item the only current scheduled payment.
+ const regional=(s.recurring||[]).find(x=>x.id==="regional2");
+ if(regional) regional.name="Regional Finance";
+
+ // Clean old exceptions tied to obsolete items.
+ s.exceptions=(s.exceptions||[]).filter(x=>!["rentcatch","latefee","regional1"].includes(x.id));
+
  s.appVersion=APP_VERSION;return s;
 }
 let state=migrate(JSON.parse(localStorage.getItem("balanceForecastState")||"null"));
@@ -271,7 +292,7 @@ function renderForecast(){
  const hard=-Math.abs(state.spotMeLimit),spot=Math.max(0,state.currentBalance-hard);spotMeRemaining.textContent=money(spot);spotMeRemaining.style.color=spot<50?"var(--bad)":spot<100?"var(--warn)":"var(--good)";
  statusBox.innerHTML=low<hard?`<div class="status bad"><strong>SpotMe limit exceeded:</strong> forecast reaches ${money(low)}.</div>`:low<0?`<div class="status warn"><strong>SpotMe would be used:</strong> forecast reaches ${money(low)}; ${money(low-hard)} remains before the hard limit.</div>`:low<state.floor?`<div class="status warn"><strong>Tight forecast:</strong> lowest balance ${money(low)} is below your ${money(state.floor)} floor.</div>`:`<div class="status good"><strong>Forecast stays above your floor.</strong> Lowest projected balance ${money(low)}.</div>`;
  ledgerBody.innerHTML=visible.map(e=>`<tr class="${e.balance<0?"negative":e.balance<state.floor?"low":""}"><td>${new Date(e.eventDate+"T12:00:00").toLocaleDateString()}</td><td>${e.name}${e.eventDate!==e.sourceDate?`<div class="note">Moved from ${new Date(e.sourceDate+"T12:00:00").toLocaleDateString()}${getException(e.id,e.sourceDate)?.moveReason?` · ${getException(e.id,e.sourceDate).moveReason}`:""}</div>`:""}</td><td><span class="pill ${e.windfall?"windfall":e.direction}">${e.windfall?"windfall":e.direction}</span></td><td class="amount">${e.direction==="income"?"+":"−"}${money(e.amount)}</td><td class="amount"><strong>${money(e.balance)}</strong></td><td class="compact"><button class="success" onclick="markPaid('${e.id}','${e.sourceDate}')">✅ Paid</button><button class="secondary" onclick="skipItem('${e.id}','${e.sourceDate}')">⏭ Skip</button><button class="secondary" onclick="editAmount('${e.id}','${e.sourceDate}')">✏️ Edit</button><button class="secondary" onclick="moveDueDate('${e.id}','${e.sourceDate}')">📅 Move</button></td></tr>`).join("");
- includeWindfall.checked=state.includeWindfall;includeOptional.checked=state.includeOptional;floorInput.value=state.floor;spotMeInput.value=state.spotMeLimit;lateFeeInput.value=state.recurring.find(x=>x.id==="latefee")?.amount||0;settingBalance.value=state.currentBalance;settingPaycheck.value=state.paycheck;settingPaySchedule.value=state.paySchedule;settingStart.value=state.startDate;drawChart(visible)
+ includeWindfall.checked=state.includeWindfall;includeOptional.checked=state.includeOptional;floorInput.value=state.floor;spotMeInput.value=state.spotMeLimit;settingBalance.value=state.currentBalance;settingIncomeName.value=state.incomeName||"Salary";settingPaycheck.value=state.paycheck;settingPaySchedule.value=state.paySchedule;settingStart.value=state.startDate;drawChart(visible)
 }
 function drawChart(events){
  const c=chart,ctx=c.getContext("2d"),W=c.width,H=c.height,p=42;ctx.clearRect(0,0,W,H);const pts=[{eventDate:state.startDate,balance:state.currentBalance},...events];if(!pts.length)return;
@@ -281,8 +302,7 @@ function drawChart(events){
  ctx.strokeStyle="#4f46e5";ctx.lineWidth=3;ctx.beginPath();pts.forEach((pt,i)=>i?ctx.lineTo(x(i),y(pt.balance)):ctx.moveTo(x(i),y(pt.balance)));ctx.stroke();pts.forEach((pt,i)=>{ctx.fillStyle=pt.balance<0?"#b91c1c":pt.balance<state.floor?"#b45309":"#0f766e";ctx.beginPath();ctx.arc(x(i),y(pt.balance),3.4,0,Math.PI*2);ctx.fill()})
 }
 function saveScenario(){state.includeWindfall=includeWindfall.checked;state.includeOptional=includeOptional.checked;state.floor=Number(floorInput.value)||0;state.spotMeLimit=Math.abs(Number(spotMeInput.value)||0);save();renderAll()}
-function updateLateFee(){let x=state.recurring.find(x=>x.id==="latefee");if(x)x.amount=Number(lateFeeInput.value)||0;save();renderAll()}
-function saveSettings(){state.currentBalance=Number(settingBalance.value)||0;state.paycheck=Number(settingPaycheck.value)||0;state.paySchedule=settingPaySchedule.value;state.startDate=settingStart.value;let p=state.recurring.find(x=>x.id==="pay");if(p){p.amount=state.paycheck;p.frequency=state.paySchedule==="semi"?"semimonthly":"biweekly"}save();renderAll()}
+function saveSettings(){state.currentBalance=Number(settingBalance.value)||0;state.incomeName=(settingIncomeName.value||"Salary").trim()||"Salary";state.paycheck=Number(settingPaycheck.value)||0;state.paySchedule=settingPaySchedule.value;state.startDate=settingStart.value;let p=state.recurring.find(x=>x.id==="pay");if(p){p.name=state.incomeName;p.amount=state.paycheck;p.frequency=state.paySchedule==="semi"?"semimonthly":"biweekly"}save();renderAll()}
 function addOneTime(){let name=newName.value.trim(),date=newDate.value,amount=Math.abs(Number(newAmount.value)),direction=newDirection.value;if(!name||!date||!amount)return alert("Add a name, date, and amount.");state.oneTime.push({id:"ot"+Date.now(),name,date,amount,direction,frequency:"one",category:"Other",optional:false,priority:"medium"});newName.value="";newAmount.value="";save();renderAll()}
 function addRecurring(){let name=recName.value.trim(),date=recDate.value,amount=Math.abs(Number(recAmount.value));if(!name||!date||!amount)return alert("Add a name, first date, and amount.");state.recurring.push({id:"r"+Date.now(),name,date,amount,direction:"expense",frequency:recFrequency.value,category:"Bills",optional:false,priority:"medium"});recName.value="";recAmount.value="";save();renderAll()}
 function setException(id,date,patch){let key=occurrenceKey(id,date),ex=state.exceptions.find(x=>x.key===key);if(!ex){ex={key,id,sourceDate:date};state.exceptions.push(ex)}Object.assign(ex,patch);save();renderAll()}
