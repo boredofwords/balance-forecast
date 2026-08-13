@@ -22,7 +22,13 @@ table{width:100%;border-collapse:collapse;font-size:13px} th,td{padding:10px 8px
 tr.low td{background:#fff7ed}tr.negative td{background:#fef2f2}.pill{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:750}.income{background:#ccfbf1;color:#115e59}.expense{background:#fee2e2;color:#991b1b}.windfall{background:#fef3c7;color:#92400e}.critical{background:#fee2e2;color:#991b1b}.high{background:#ffedd5;color:#9a3412}.medium{background:#fef3c7;color:#92400e}.flexible{background:#e0e7ff;color:#3730a3}
 .status{padding:11px 13px;border-radius:11px;font-size:13px;margin-bottom:12px}.status.good{background:#ecfdf5;color:#065f46}.status.warn{background:#fff7ed;color:#9a3412}.status.bad{background:#fef2f2;color:#991b1b}
 .bill-card,.allocation-row,.timeline-item,.goal-card{border:1px solid var(--line);border-radius:13px;padding:12px;margin-bottom:9px;background:#fff}.allocation-row{display:grid;grid-template-columns:auto 1fr 130px auto;gap:10px;align-items:center}.allocation-row input[type=checkbox]{width:auto}
-.timeline-item{display:grid;grid-template-columns:115px 1fr auto;gap:12px}.timeline-date{font-weight:800}.timeline-balance{font-weight:850}.summary-box{background:var(--accent2);border:1px solid #c7d2fe;border-radius:14px;padding:14px}
+.timeline-item{display:grid;grid-template-columns:115px 1fr auto;gap:12px}.timeline-date{font-weight:800}.timeline-balance{font-weight:850}
+.summary-box{background:var(--accent2);border:1px solid #c7d2fe;border-radius:14px;padding:14px}
+.rescue-card{border:1px solid #fecaca;background:#fff7f7;border-radius:14px;padding:14px;margin-top:12px}
+.rescue-option{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:8px;background:#fff}
+.rescue-option.recommended{border-color:#f59e0b;background:#fffbeb}
+.rescue-badge{display:inline-block;font-size:11px;font-weight:800;border-radius:999px;padding:3px 8px;background:#fef3c7;color:#92400e}
+
 .switchline{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}.switchline input{width:auto}.hidden{display:none}.muted{color:var(--muted)}.archived{opacity:.65}
 .compact button{padding:6px 8px;font-size:12px}
 .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;padding:18px;z-index:9999}
@@ -129,6 +135,17 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 <div class="card half summary-box"><h2>Paycheck summary</h2><div id="plannerSummary"></div></div>
 <div class="card half"><div class="row"><h2>Suggested allocations</h2><button class="success" onclick="applyPaycheckPlan()">Apply selected plan</button></div><div id="allocationList"></div></div>
 <div class="card full"><h2>Allocation result</h2><div id="allocationResult" class="note">Build a plan to see the projected balance after each selected payment.</div></div>
+<div class="card full">
+  <div class="row">
+    <div>
+      <h2>Red-zone rescue plan</h2>
+      <p class="note">If the forecast goes below $0 before the next paycheck, this recommends which bills to move to the next paycheck to get back above $0—or above your protected floor.</p>
+    </div>
+    <button class="secondary" onclick="buildRescuePlan()">Recalculate rescue</button>
+  </div>
+  <div id="rescuePlan"></div>
+</div>
+
 </div>
 </section>
 
@@ -194,7 +211,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 
 <script>
-const APP_VERSION=29;
+const APP_VERSION=30;
 const BASELINE={
  appVersion:APP_VERSION,startDate:"2026-08-03",currentBalance:-125.34,balanceAsOf:"2026-08-03",incomeName:"Salary",paycheck:3794.09,paySchedule:"semi",floor:300,spotMeLimit:200,includeWindfall:false,includeOptional:true,
  recurring:[
@@ -413,10 +430,59 @@ function buildPaycheckPlan(){
  plannerItems=events.sort((a,b)=>priorityRank(a.priority)-priorityRank(b.priority)||a.eventDate.localeCompare(b.eventDate)).map((e,i)=>({...e,selected:e.priority!=="flexible",planAmount:e.amount,planId:"p"+i}));
  plannerSummary.innerHTML=`<div><strong>Starting balance:</strong> ${money(state.currentBalance)}</div><div><strong>Expected deposit:</strong> ${money(deposit)}</div><div><strong>Available after deposit:</strong> ${money(state.currentBalance+deposit)}</div><div><strong>Protected floor:</strong> ${money(floor)}</div>`;
  allocationList.innerHTML=plannerItems.map(x=>`<div class="allocation-row"><input type="checkbox" ${x.selected?"checked":""} onchange="updatePlanItem('${x.planId}',this.checked,null)"><div><strong>${x.name}</strong><div class="note">Due ${x.eventDate}</div></div><input type="number" step=".01" value="${x.planAmount}" oninput="updatePlanItem('${x.planId}',null,this.value)"><span class="pill ${x.priority} priority">${x.priority}</span></div>`).join("");
- renderAllocationResult()
+ renderAllocationResult();buildRescuePlan()
 }
-function updatePlanItem(id,selected,amount){let x=plannerItems.find(x=>x.planId===id);if(selected!==null)x.selected=selected;if(amount!==null&&!isNaN(Number(amount)))x.planAmount=Math.abs(Number(amount));renderAllocationResult()}
+function updatePlanItem(id,selected,amount){let x=plannerItems.find(x=>x.planId===id);if(selected!==null)x.selected=selected;if(amount!==null&&!isNaN(Number(amount)))x.planAmount=Math.abs(Number(amount));renderAllocationResult();buildRescuePlan()}
 function renderAllocationResult(){let bal=state.currentBalance+(Number(plannerDeposit.value)||0),rows=[];plannerItems.filter(x=>x.selected).forEach(x=>{bal-=x.planAmount;rows.push(`<div class="row"><span>${x.name}</span><span>${money(x.planAmount)} → <strong>${money(bal)}</strong></span></div>`)});let floor=Number(plannerFloor.value)||0,hard=-Math.abs(state.spotMeLimit);allocationResult.innerHTML=rows.join("")+`<hr><div class="row"><strong>Remaining after selected payments</strong><strong>${money(bal)}</strong></div><div class="status ${bal<hard?"bad":bal<floor?"warn":"good"}" style="margin-top:10px">${bal<hard?"Plan exceeds SpotMe limit.":bal<0?"Plan uses SpotMe.":bal<floor?"Plan falls below your preferred floor.":"Plan stays above your preferred floor."}</div>`}
+
+function rescueEligibility(e){
+ if(e.direction!=="expense")return false;
+ if(e.priority==="critical" && ["Housing","Insurance"].includes(e.category))return false;
+ if(e.id==="regional2")return false; // keep current Regional Finance payment on time by default
+ return true;
+}
+function rescueScore(e){
+ const p={flexible:0,medium:1,high:2,critical:3}[e.priority]??2;
+ const categoryPenalty=["Housing","Insurance"].includes(e.category)?4:["Transportation"].includes(e.category)?2:0;
+ return p+categoryPenalty;
+}
+function buildRescuePlan(){
+ const pd=plannerDate.value||state.balanceAsOf||state.startDate;
+ const nd=plannerNextDate.value||nextPayDateAfter(pd);
+ const floor=Number(plannerFloor.value)||0;
+ const events=buildForecast().filter(e=>parseDate(e.eventDate)>=parseDate(pd)&&parseDate(e.eventDate)<parseDate(nd));
+ let low=state.currentBalance, lowDate=pd;
+ for(const e of events){ if(e.balance<low){low=e.balance;lowDate=e.eventDate;} }
+ const shortfall0=Math.max(0,-low);
+ const shortfallFloor=Math.max(0,floor-low);
+
+ if(shortfall0<=0){
+   rescuePlan.innerHTML=`<div class="status good"><strong>No rescue needed.</strong> Forecast stays at or above $0 before the next paycheck. Lowest balance: ${money(low)}.</div>`;
+   return;
+ }
+
+ const candidates=events.filter(rescueEligibility).sort((a,b)=>rescueScore(a)-rescueScore(b)||b.amount-a.amount||a.eventDate.localeCompare(b.eventDate));
+ let moved0=[],sum0=0;
+ for(const e of candidates){ if(sum0>=shortfall0)break; moved0.push(e); sum0+=e.amount; }
+ let movedFloor=[],sumFloor=0;
+ for(const e of candidates){ if(sumFloor>=shortfallFloor)break; movedFloor.push(e); sumFloor+=e.amount; }
+
+ const renderOption=(title,need,arr,sum,label)=>{
+   if(!arr.length||sum<need)return `<div class="rescue-option"><strong>${title}</strong><div class="note">No safe combination of movable bills in this pay period fully solves the shortfall. You may need a payment arrangement, extra cash, or to reduce spending reserves.</div></div>`;
+   const projected=low+sum;
+   return `<div class="rescue-option ${label==="recommended"?"recommended":""}">
+     <div class="row"><strong>${title}</strong>${label==="recommended"?'<span class="rescue-badge">Recommended</span>':""}</div>
+     <div class="note">Move ${money(sum)} total. Lowest balance improves from ${money(low)} to about ${money(projected)}.</div>
+     ${arr.map(e=>`<div class="row" style="margin-top:8px"><span>${e.name}<div class="note">${e.eventDate} · ${money(e.amount)}</div></span><button class="secondary" onclick="moveDueDate('${e.id}','${e.sourceDate}')">Move</button></div>`).join("")}
+   </div>`;
+ };
+
+ rescuePlan.innerHTML=
+   `<div class="status bad"><strong>Red forecast:</strong> lowest balance is ${money(low)} on ${new Date(lowDate+"T12:00:00").toLocaleDateString()}. You need to move at least ${money(shortfall0)} to stay above $0.</div>`+
+   renderOption("Minimum fix — stay above $0",shortfall0,moved0,sum0,"recommended")+
+   renderOption(`Safer fix — protect your ${money(floor)} floor`,shortfallFloor,movedFloor,sumFloor,"safe");
+}
+
 function applyPaycheckPlan(){if(!plannerItems.length)return;let selected=plannerItems.filter(x=>x.selected);if(!confirm(`Apply ${selected.length} planned allocations to the forecast? This changes occurrence amounts but does not mark them paid.`))return;selected.forEach(x=>setException(x.id,x.sourceDate,{amount:x.planAmount}));showPanel("forecast")}
 function renderTimeline(){let days=Number(timelineRange?.value||90),events=buildForecast(days);timelineList.innerHTML=`<div class="timeline-item"><div class="timeline-date">${new Date((state.balanceAsOf||state.startDate)+"T12:00:00").toLocaleDateString()}</div><div>Reconciled checking balance</div><div class="timeline-balance">${money(state.currentBalance)}</div></div>`+events.map(e=>`<div class="timeline-item ${e.balance<0?"negative":""}"><div class="timeline-date">${new Date(e.eventDate+"T12:00:00").toLocaleDateString()}</div><div><strong>${e.name}</strong><div class="note">${e.direction==="income"?"Deposit":"Payment"} ${money(e.amount)}</div></div><div class="timeline-balance">${money(e.balance)}</div></div>`).join("")}
 function addGoal(){let name=prompt("Goal name:");if(!name)return;let target=Number(prompt("Target amount:","1000"));if(!target)return;state.goals.push({id:"g"+Date.now(),name,target,saved:0});save();renderGoals()}
