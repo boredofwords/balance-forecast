@@ -82,7 +82,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   <div class="row">
     <div>
       <h2 style="margin-bottom:4px">Reconcile current balance</h2>
-      <p class="note" style="margin:0">Enter what checking shows right now. The forecast starts from this date so earlier deposits and payments are not counted again. When salary posts, update the balance here instead of marking the deposit as paid.</p>
+      <p class="note" style="margin:0">Enter what checking shows right now. The forecast starts from this date so earlier deposits and payments are not counted again. When salary posts, tap Received and enter the checking balance after the deposit. That occurrence will disappear while future paychecks stay scheduled.</p>
     </div>
   </div>
   <div class="settingsgrid" style="margin-top:12px">
@@ -194,7 +194,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 
 <script>
-const APP_VERSION=28;
+const APP_VERSION=29;
 const BASELINE={
  appVersion:APP_VERSION,startDate:"2026-08-03",currentBalance:-125.34,balanceAsOf:"2026-08-03",incomeName:"Salary",paycheck:3794.09,paySchedule:"semi",floor:300,spotMeLimit:200,includeWindfall:false,includeOptional:true,
  recurring:[
@@ -267,7 +267,7 @@ function buildForecast(days=365){
  [...state.recurring,...state.oneTime].forEach(item=>{
   if(isArchived(item.id)||isPaused(item.id))return;if(item.optional&&!state.includeOptional)return;if(item.windfall&&!state.includeWindfall)return;
   occurrences(item,start,end).forEach(d=>{
-   let date=iso(d),ex=getException(item.id,date);if(ex?.status==="paid"||ex?.status==="skipped")return;
+   let date=iso(d),ex=getException(item.id,date);if(ex?.status==="paid"||ex?.status==="skipped"||ex?.status==="received")return;
    if(ex?.date)date=ex.date;let amount=ex?.amount??item.amount;events.push({...item,eventDate:date,amount,sourceDate:iso(d)})
   })
  });
@@ -314,11 +314,15 @@ function setException(id,date,patch){let key=occurrenceKey(id,date),ex=state.exc
 
 function receiveIncome(id,date){
  const item=[...state.recurring,...state.oneTime].find(x=>x.id===id);
- const ok=confirm(`${item?.name||"Income"} has posted?\n\nTo avoid double-counting, update your CURRENT checking balance after the deposit. The forecast will then start from that balance and will not add this deposit again.`);
- if(!ok)return;
- quickBalanceDate.value=date;
- quickBalance.focus();
- quickBalance.scrollIntoView({behavior:"smooth",block:"center"});
+ const entered=prompt(`${item?.name||"Income"} received.\n\nEnter your checking balance AFTER this deposit and any transactions already reflected in your account:`, state.currentBalance);
+ if(entered===null)return;
+ const amount=Number(entered);
+ if(Number.isNaN(amount))return alert("Enter a valid checking balance.");
+ state.currentBalance=amount;
+ state.balanceAsOf=date;
+ setException(id,date,{status:"received",receivedAt:iso(new Date())});
+ save();
+ renderAll();
 }
 
 function markPaid(id,date){
