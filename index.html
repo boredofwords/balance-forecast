@@ -70,7 +70,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 <body>
 <header>
 <div><h1>Household Financial Command Center</h1><p>Cash-flow forecasting, paycheck planning, bill actions, timeline, and goals.</p></div>
-<div class="actions"><button class="secondary" onclick="exportData()">Export</button><label class="btn secondary">Import<input id="importFile" class="hidden" type="file" accept=".json" onchange="importData(event)"></label><button class="danger" onclick="resetData()">Reset baseline</button></div>
+<div class="actions"><button class="secondary" onclick="exportData()">Export</button><label class="btn secondary">Import<input id="importFile" class="hidden" type="file" accept=".json" onchange="importData(event)"></label></div>
 </header>
 <main>
 <div class="tabs">
@@ -139,7 +139,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   <div class="row">
     <div>
       <h2>Red-zone rescue plan</h2>
-      <p class="note">If the forecast goes below $0 before the next paycheck, this recommends which bills to move to the next paycheck to get back above $0—or above your protected floor.</p>
+      <p class="note">If the forecast goes below $0 before the next paycheck, this recommends only bills due by the red-point date that could actually be moved to the next paycheck to get back above $0—or above your protected floor.</p>
     </div>
     <button class="secondary" onclick="buildRescuePlan()">Recalculate rescue</button>
   </div>
@@ -160,7 +160,14 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 <section id="goals" class="panel"><div class="grid"><div class="card full"><div class="row"><div><h2>Goals</h2><p class="note">Quarterly bonus and stock proceeds stay separate from ordinary bills and can be assigned here.</p></div><button class="primary" onclick="addGoal()">Add goal</button></div><div id="goalList"></div></div><div class="card full"><h2>Quarterly windfall planner</h2><div class="settingsgrid"><div><label>Expected windfall</label><input id="windfallAmount" type="number" value="10000" oninput="renderGoals()"></div><div><label>Emergency savings %</label><input id="windfallEmergency" type="number" value="40" oninput="renderGoals()"></div><div><label>Vacation %</label><input id="windfallVacation" type="number" value="20" oninput="renderGoals()"></div><div><label>Big-ticket items %</label><input id="windfallBig" type="number" value="40" oninput="renderGoals()"></div></div><div id="windfallResult" style="margin-top:12px"></div></div></div></section>
 
-<section id="settings" class="panel"><div class="grid"><div class="card full"><h2>Core settings</h2><div class="settingsgrid"><div><label>Current checking balance</label><input id="settingBalance" type="number" step=".01" onchange="saveSettings()"></div><div><label>Income name</label><input id="settingIncomeName" type="text" onchange="saveSettings()"></div><div><label>Regular paycheck</label><input id="settingPaycheck" type="number" step=".01" onchange="saveSettings()"></div><div><label>Pay schedule</label><select id="settingPaySchedule" onchange="saveSettings()"><option value="semi">15th & month-end</option><option value="biweekly">Every 2 weeks</option></select></div><div><label>Balance as-of date</label><input id="settingBalanceAsOf" type="date" onchange="saveSettings()"></div><div><label>Original plan start</label><input id="settingStart" type="date" onchange="saveSettings()"></div></div><p class="note">Everything is stored in this browser. Export a backup before clearing browser data or moving devices.</p></div></div></section>
+<section id="settings" class="panel"><div class="grid"><div class="card full"><h2>Core settings</h2><div class="settingsgrid"><div><label>Current checking balance</label><input id="settingBalance" type="number" step=".01" onchange="saveSettings()"></div><div><label>Income name</label><input id="settingIncomeName" type="text" onchange="saveSettings()"></div><div><label>Regular paycheck</label><input id="settingPaycheck" type="number" step=".01" onchange="saveSettings()"></div><div><label>Pay schedule</label><select id="settingPaySchedule" onchange="saveSettings()"><option value="semi">15th & month-end</option><option value="biweekly">Every 2 weeks</option></select></div><div><label>Balance as-of date</label><input id="settingBalanceAsOf" type="date" onchange="saveSettings()"></div><div><label>Original plan start</label><input id="settingStart" type="date" onchange="saveSettings()"></div></div><p class="note">Everything is stored in this browser. Export a backup before clearing browser data or moving devices.</p></div></div>
+<div class="card full" style="margin-top:12px">
+  <h2>Advanced / data controls</h2>
+  <p class="note">Reset starts the app over on this device. It clears bills, payment history, moved/skipped items, one-time items, goals, and other planning changes.</p>
+  <button class="danger" onclick="resetCleanTemplate()">Reset</button>
+  <p class="note" style="margin-top:8px">Reset keeps only your income setup, current reconciled balance/date, preferred floor, and SpotMe limit.</p>
+</div>
+</section>
 </main>
 
 <div id="moveModal" class="modal-backdrop" onclick="closeMoveModal(event)">
@@ -211,7 +218,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 
 <script>
-const APP_VERSION=30;
+const APP_VERSION=32;
 const BASELINE={
  appVersion:APP_VERSION,startDate:"2026-08-03",currentBalance:-125.34,balanceAsOf:"2026-08-03",incomeName:"Salary",paycheck:3794.09,paySchedule:"semi",floor:300,spotMeLimit:200,includeWindfall:false,includeOptional:true,
  recurring:[
@@ -349,7 +356,7 @@ function markPaid(id,date){
 }
 function skipItem(id,date){let item=[...state.recurring,...state.oneTime].find(x=>x.id===id);if(confirm(`Skip ${item?.name||"this item"} for this occurrence only?`))setException(id,date,{status:"skipped"})}
 function editAmount(id,date){let item=[...state.recurring,...state.oneTime].find(x=>x.id===id),v=prompt("Amount for this occurrence:",item?.amount??0);if(v!==null&&!isNaN(Number(v)))setException(id,date,{amount:Math.abs(Number(v))})}
-let activeMove={id:null,sourceDate:null,selectedDate:null};
+let activeMove={id:null,sourceDate:null,selectedDate:null,context:null};
 function firstOfNextMonth(date){
  const d=parseDate(date);return iso(new Date(d.getFullYear(),d.getMonth()+1,1))
 }
@@ -361,13 +368,14 @@ function nextPaycheckForMove(date){
  if(state.paySchedule==="biweekly")return iso(new Date(d.getTime()+14*864e5));
  return iso(nextSemi(d))
 }
-function moveDueDate(id,date){
+function moveDueDate(id,date,context=null){
  const item=[...state.recurring,...state.oneTime].find(x=>x.id===id);
  if(!item)return alert("This payment could not be found.");
- activeMove={id,sourceDate:date,selectedDate:null};
- const nextPay=nextPaycheckForMove(date);
+ activeMove={id,sourceDate:date,selectedDate:null,context};
+ const rescueTarget=(context==="rescue"&&plannerNextDate?.value)?plannerNextDate.value:null;
+ const nextPay=rescueTarget||nextPaycheckForMove(date);
  const firstNext=nextPay;
- const secondNext=fifteenthOfNextMonth(date);
+ const secondNext=nextPaycheckForMove(nextPay);
  moveModalItem.textContent=`${item.name} · ${money(getException(id,date)?.amount??item.amount)} · originally ${new Date(date+"T12:00:00").toLocaleDateString()}`;
  quickNextPaycheckLabel.textContent=new Date(nextPay+"T12:00:00").toLocaleDateString();
  quickFirstNextMonthLabel.textContent=new Date(firstNext+"T12:00:00").toLocaleDateString();
@@ -380,9 +388,10 @@ function moveDueDate(id,date){
 }
 function chooseMoveDate(kind){
  let date;
- if(kind==="nextPaycheck")date=nextPaycheckForMove(activeMove.sourceDate);
- else if(kind==="firstNextMonth")date=nextPaycheckForMove(activeMove.sourceDate);
- else if(kind==="secondNextMonth")date=fifteenthOfNextMonth(activeMove.sourceDate);
+ const rescueTarget=(activeMove.context==="rescue"&&plannerNextDate?.value)?plannerNextDate.value:null;
+ if(kind==="nextPaycheck")date=rescueTarget||nextPaycheckForMove(activeMove.sourceDate);
+ else if(kind==="firstNextMonth")date=rescueTarget||nextPaycheckForMove(activeMove.sourceDate);
+ else if(kind==="secondNextMonth")date=nextPaycheckForMove(rescueTarget||nextPaycheckForMove(activeMove.sourceDate));
  else {moveDateInput.focus();document.querySelectorAll(".quick-date").forEach(x=>x.classList.remove("selected"));quickCustom.classList.add("selected");return}
  activeMove.selectedDate=date;moveDateInput.value=date;
  document.querySelectorAll(".quick-date").forEach(x=>x.classList.remove("selected"));
@@ -410,7 +419,7 @@ function confirmMoveDate(){
 function closeMoveModal(event){
  if(event&&event.target!==moveModal)return;
  moveModal.classList.remove("open");
- activeMove={id:null,sourceDate:null,selectedDate:null};
+ activeMove={id:null,sourceDate:null,selectedDate:null,context:null};
 }
 function changeRecurring(id){let item=state.recurring.find(x=>x.id===id);if(!item)return;let a=prompt("New recurring amount:",item.amount);if(a===null)return;let d=prompt("New recurring first/next date (YYYY-MM-DD):",item.date);if(!d)return;let f=prompt("Frequency: monthly, semimonthly, biweekly, quarterly, annual, or one",item.frequency);if(!["monthly","semimonthly","biweekly","quarterly","annual","one"].includes(f))return alert("Frequency not recognized.");item.amount=Math.abs(Number(a));item.date=d;item.frequency=f;save();renderAll()}
 function pauseRecurring(id){if(state.paused.includes(id))state.paused=state.paused.filter(x=>x!==id);else state.paused.push(id);save();renderAll()}
@@ -461,7 +470,7 @@ function buildRescuePlan(){
    return;
  }
 
- const candidates=events.filter(rescueEligibility).sort((a,b)=>rescueScore(a)-rescueScore(b)||b.amount-a.amount||a.eventDate.localeCompare(b.eventDate));
+ const candidates=events.filter(e=>rescueEligibility(e)&&e.eventDate<=lowDate).sort((a,b)=>rescueScore(a)-rescueScore(b)||b.amount-a.amount||a.eventDate.localeCompare(b.eventDate));
  let moved0=[],sum0=0;
  for(const e of candidates){ if(sum0>=shortfall0)break; moved0.push(e); sum0+=e.amount; }
  let movedFloor=[],sumFloor=0;
@@ -473,7 +482,7 @@ function buildRescuePlan(){
    return `<div class="rescue-option ${label==="recommended"?"recommended":""}">
      <div class="row"><strong>${title}</strong>${label==="recommended"?'<span class="rescue-badge">Recommended</span>':""}</div>
      <div class="note">Move ${money(sum)} total. Lowest balance improves from ${money(low)} to about ${money(projected)}.</div>
-     ${arr.map(e=>`<div class="row" style="margin-top:8px"><span>${e.name}<div class="note">${e.eventDate} · ${money(e.amount)}</div></span><button class="secondary" onclick="moveDueDate('${e.id}','${e.sourceDate}')">Move</button></div>`).join("")}
+     ${arr.map(e=>`<div class="row" style="margin-top:8px"><span>${e.name}<div class="note">${e.eventDate} · ${money(e.amount)}</div></span><button class="secondary" onclick="moveDueDate('${e.id}','${e.sourceDate}','rescue')">Move</button></div>`).join("")}
    </div>`;
  };
 
@@ -492,7 +501,55 @@ function renderGoals(){goalList.innerHTML=state.goals.map(g=>{let pct=Math.min(1
 }
 function exportData(){let blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="household-financial-command-center.json";a.click()}
 function importData(ev){let f=ev.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{state=migrate(JSON.parse(r.result));save();renderAll()}catch(e){alert("That file could not be imported.")}};r.readAsText(f)}
-function resetData(){if(confirm("Reset to the original household baseline?")){state=clone(BASELINE);save();renderAll()}}
+
+function resetCleanTemplate(){
+ const warning="Reset the app to a clean template?\n\nThis clears bills, payment history, moved/skipped items, one-time items, goals, and other planning changes saved on this device.\n\nYour income setup and current balance settings will be kept.";
+ if(!confirm(warning))return;
+ if(!confirm("This cannot be undone unless you exported a backup. Reset now?"))return;
+
+ const existingPay=(state.recurring||[]).find(x=>x.id==="pay"&&x.direction==="income");
+ const cleanPay=existingPay ? clone(existingPay) : {
+   id:"pay",
+   name:state.incomeName||"Salary",
+   amount:Number(state.paycheck)||0,
+   direction:"income",
+   date:state.balanceAsOf||state.startDate||iso(new Date()),
+   frequency:state.paySchedule==="biweekly"?"biweekly":"semimonthly",
+   category:"Income",
+   optional:false,
+   priority:"critical"
+ };
+
+ cleanPay.name=state.incomeName||cleanPay.name||"Salary";
+ cleanPay.amount=Number(state.paycheck)||Number(cleanPay.amount)||0;
+ cleanPay.frequency=state.paySchedule==="biweekly"?"biweekly":"semimonthly";
+
+ state={
+   appVersion:APP_VERSION,
+   startDate:state.balanceAsOf||state.startDate||iso(new Date()),
+   currentBalance:Number(state.currentBalance)||0,
+   balanceAsOf:state.balanceAsOf||state.startDate||iso(new Date()),
+   incomeName:state.incomeName||"Salary",
+   paycheck:Number(state.paycheck)||Number(cleanPay.amount)||0,
+   paySchedule:state.paySchedule||"semi",
+   floor:Number(state.floor)||0,
+   spotMeLimit:Math.abs(Number(state.spotMeLimit)||200),
+   includeWindfall:false,
+   includeOptional:false,
+   recurring:[cleanPay],
+   oneTime:[],
+   exceptions:[],
+   archived:[],
+   paused:[],
+   goals:[]
+ };
+ save();
+ renderAll();
+ showPanel("forecast");
+ alert("Reset complete. Your income setup and balance settings were kept; everything else was cleared.");
+}
+
+function restoreDeveloperBaseline(){if(confirm("Restore the original developer baseline?")){state=clone(BASELINE);save();renderAll()}}
 newDate.value="2026-08-15";recDate.value="2026-08-15";renderAll();
 
 if ("serviceWorker" in navigator) {
