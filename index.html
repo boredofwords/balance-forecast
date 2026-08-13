@@ -88,7 +88,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   <div class="row">
     <div>
       <h2 style="margin-bottom:4px">Reconcile current balance</h2>
-      <p class="note" style="margin:0">Enter what checking shows right now. The forecast starts from this date so earlier deposits and payments are not counted again. When salary posts, tap Received and enter the checking balance after the deposit. That occurrence will disappear while future paychecks stay scheduled.</p>
+      <p class="note" style="margin:0">Enter what checking shows right now. The forecast starts from this date so earlier deposits and payments are not counted again. When salary posts, tap Received and enter the checking balance after the deposit. For bills, Paid & subtract now updates your available balance immediately; use Already reflected when your bank balance already includes the payment.</p>
     </div>
   </div>
   <div class="settingsgrid" style="margin-top:12px">
@@ -218,7 +218,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 
 <script>
-const APP_VERSION=32;
+const APP_VERSION=33;
 const BASELINE={
  appVersion:APP_VERSION,startDate:"2026-08-03",currentBalance:-125.34,balanceAsOf:"2026-08-03",incomeName:"Salary",paycheck:3794.09,paySchedule:"semi",floor:300,spotMeLimit:200,includeWindfall:false,includeOptional:true,
  recurring:[
@@ -352,11 +352,41 @@ function receiveIncome(id,date){
 function markPaid(id,date){
  const item=[...state.recurring,...state.oneTime].find(x=>x.id===id);
  if(item?.direction==="income")return receiveIncome(id,date);
- if(confirm("Mark this occurrence paid?"))setException(id,date,{status:"paid",paidAt:iso(new Date())})
+ activePaid={id,sourceDate:date};
+ const amount=occurrenceAmount(item,date);
+ paidModalDescription.textContent=`${item?.name||"Payment"} · ${money(amount)}`;
+ paidModal.classList.add("show");
 }
+
+function closePaidModal(){
+ paidModal.classList.remove("show");
+ activePaid={id:null,sourceDate:null};
+}
+function confirmPaidAndSubtract(){
+ const {id,sourceDate}=activePaid;
+ const item=[...state.recurring,...state.oneTime].find(x=>x.id===id);
+ if(!item)return closePaidModal();
+ const amount=occurrenceAmount(item,sourceDate);
+ state.currentBalance=Number(state.currentBalance)-Number(amount);
+ state.balanceAsOf=iso(new Date());
+ setException(id,sourceDate,{status:"paid",paidAt:iso(new Date()),balanceAdjusted:true});
+ closePaidModal();
+ save();
+ renderAll();
+}
+function confirmPaidAlreadyReflected(){
+ const {id,sourceDate}=activePaid;
+ if(!id)return closePaidModal();
+ setException(id,sourceDate,{status:"paid",paidAt:iso(new Date()),balanceAdjusted:false});
+ closePaidModal();
+ save();
+ renderAll();
+}
+
 function skipItem(id,date){let item=[...state.recurring,...state.oneTime].find(x=>x.id===id);if(confirm(`Skip ${item?.name||"this item"} for this occurrence only?`))setException(id,date,{status:"skipped"})}
 function editAmount(id,date){let item=[...state.recurring,...state.oneTime].find(x=>x.id===id),v=prompt("Amount for this occurrence:",item?.amount??0);if(v!==null&&!isNaN(Number(v)))setException(id,date,{amount:Math.abs(Number(v))})}
 let activeMove={id:null,sourceDate:null,selectedDate:null,context:null};
+let activePaid={id:null,sourceDate:null};
 function firstOfNextMonth(date){
  const d=parseDate(date);return iso(new Date(d.getFullYear(),d.getMonth()+1,1))
 }
