@@ -82,7 +82,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   <div class="row">
     <div>
       <h2 style="margin-bottom:4px">Reconcile current balance</h2>
-      <p class="note" style="margin:0">Enter what checking shows right now. The forecast starts from this date so earlier deposits and payments are not counted again.</p>
+      <p class="note" style="margin:0">Enter what checking shows right now. The forecast starts from this date so earlier deposits and payments are not counted again. When salary posts, update the balance here instead of marking the deposit as paid.</p>
     </div>
   </div>
   <div class="settingsgrid" style="margin-top:12px">
@@ -194,7 +194,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 
 <script>
-const APP_VERSION=27;
+const APP_VERSION=28;
 const BASELINE={
  appVersion:APP_VERSION,startDate:"2026-08-03",currentBalance:-125.34,balanceAsOf:"2026-08-03",incomeName:"Salary",paycheck:3794.09,paySchedule:"semi",floor:300,spotMeLimit:200,includeWindfall:false,includeOptional:true,
  recurring:[
@@ -237,6 +237,7 @@ function migrate(s){
  const regional=(s.recurring||[]).find(x=>x.id==="regional2");
  if(regional) regional.name="Regional Finance";
  s.exceptions=(s.exceptions||[]).filter(x=>!["rentcatch","latefee","regional1"].includes(x.id));
+ s.exceptions=s.exceptions.filter(x=>!(x.id==="pay"&&["paid","skipped"].includes(x.status)));
  s.exceptions=s.exceptions.filter(x=>x.key!==occurrenceKey("regional2","2026-08-28"));
 
  s.appVersion=APP_VERSION;return s;
@@ -281,7 +282,9 @@ function renderForecast(){
  lowestBalance.textContent=money(low);lowestBalance.style.color=low<0?"var(--bad)":low<state.floor?"var(--warn)":"var(--good)";lowestDate.textContent=lowEvent?new Date(lowEvent.eventDate+"T12:00:00").toLocaleDateString():"Today";safeExtra.textContent=money(Math.max(0,low-state.floor));
  const hard=-Math.abs(state.spotMeLimit),spot=state.currentBalance>=0?Math.abs(state.spotMeLimit):Math.max(0,Math.abs(state.spotMeLimit)+state.currentBalance);spotMeRemaining.textContent=money(spot);spotMeRemaining.style.color=spot<50?"var(--bad)":spot<100?"var(--warn)":"var(--good)";
  statusBox.innerHTML=low<hard?`<div class="status bad"><strong>SpotMe limit exceeded:</strong> forecast reaches ${money(low)}.</div>`:low<0?`<div class="status warn"><strong>SpotMe would be used:</strong> forecast reaches ${money(low)}; ${money(low-hard)} remains before the hard limit.</div>`:low<state.floor?`<div class="status warn"><strong>Tight forecast:</strong> lowest balance ${money(low)} is below your ${money(state.floor)} floor.</div>`:`<div class="status good"><strong>Forecast stays above your floor.</strong> Lowest projected balance ${money(low)}.</div>`;
- ledgerBody.innerHTML=visible.map(e=>`<tr class="${e.balance<0?"negative":e.balance<state.floor?"low":""}"><td>${new Date(e.eventDate+"T12:00:00").toLocaleDateString()}</td><td>${e.name}${e.eventDate!==e.sourceDate?`<div class="note">Moved from ${new Date(e.sourceDate+"T12:00:00").toLocaleDateString()}${getException(e.id,e.sourceDate)?.moveReason?` · ${getException(e.id,e.sourceDate).moveReason}`:""}</div>`:""}</td><td><span class="pill ${e.windfall?"windfall":e.direction}">${e.windfall?"windfall":e.direction}</span></td><td class="amount">${e.direction==="income"?"+":"−"}${money(e.amount)}</td><td class="amount"><strong>${money(e.balance)}</strong></td><td class="compact"><button class="success" onclick="markPaid('${e.id}','${e.sourceDate}')">✅ Paid</button><button class="secondary" onclick="skipItem('${e.id}','${e.sourceDate}')">⏭ Skip</button><button class="secondary" onclick="editAmount('${e.id}','${e.sourceDate}')">✏️ Edit</button><button class="secondary" onclick="moveDueDate('${e.id}','${e.sourceDate}')">📅 Move</button></td></tr>`).join("");
+ ledgerBody.innerHTML=visible.map(e=>`<tr class="${e.balance<0?"negative":e.balance<state.floor?"low":""}"><td>${new Date(e.eventDate+"T12:00:00").toLocaleDateString()}</td><td>${e.name}${e.eventDate!==e.sourceDate?`<div class="note">Moved from ${new Date(e.sourceDate+"T12:00:00").toLocaleDateString()}${getException(e.id,e.sourceDate)?.moveReason?` · ${getException(e.id,e.sourceDate).moveReason}`:""}</div>`:""}</td><td><span class="pill ${e.windfall?"windfall":e.direction}">${e.windfall?"windfall":e.direction}</span></td><td class="amount">${e.direction==="income"?"+":"−"}${money(e.amount)}</td><td class="amount"><strong>${money(e.balance)}</strong></td><td class="compact">${e.direction==="income"
+?`<button class="success" onclick="receiveIncome('${e.id}','${e.sourceDate}')">💰 Received</button>`
+:`<button class="success" onclick="markPaid('${e.id}','${e.sourceDate}')">✅ Paid</button><button class="secondary" onclick="skipItem('${e.id}','${e.sourceDate}')">⏭ Skip</button><button class="secondary" onclick="editAmount('${e.id}','${e.sourceDate}')">✏️ Edit</button><button class="secondary" onclick="moveDueDate('${e.id}','${e.sourceDate}')">📅 Move</button>`}</td></tr>`).join("");
  includeWindfall.checked=state.includeWindfall;includeOptional.checked=state.includeOptional;floorInput.value=state.floor;spotMeInput.value=state.spotMeLimit;settingBalance.value=state.currentBalance;settingBalanceAsOf.value=state.balanceAsOf||state.startDate;quickBalance.value=state.currentBalance;quickBalanceDate.value=state.balanceAsOf||state.startDate;settingIncomeName.value=state.incomeName||"Salary";settingPaycheck.value=state.paycheck;settingPaySchedule.value=state.paySchedule;settingStart.value=state.startDate;drawChart(visible)
 }
 function drawChart(events){
@@ -308,7 +311,21 @@ function saveSettings(){state.currentBalance=Number(settingBalance.value)||0;sta
 function addOneTime(){let name=newName.value.trim(),date=newDate.value,amount=Math.abs(Number(newAmount.value)),direction=newDirection.value;if(!name||!date||!amount)return alert("Add a name, date, and amount.");state.oneTime.push({id:"ot"+Date.now(),name,date,amount,direction,frequency:"one",category:"Other",optional:false,priority:"medium"});newName.value="";newAmount.value="";save();renderAll()}
 function addRecurring(){let name=recName.value.trim(),date=recDate.value,amount=Math.abs(Number(recAmount.value));if(!name||!date||!amount)return alert("Add a name, first date, and amount.");state.recurring.push({id:"r"+Date.now(),name,date,amount,direction:"expense",frequency:recFrequency.value,category:"Bills",optional:false,priority:"medium"});recName.value="";recAmount.value="";save();renderAll()}
 function setException(id,date,patch){let key=occurrenceKey(id,date),ex=state.exceptions.find(x=>x.key===key);if(!ex){ex={key,id,sourceDate:date};state.exceptions.push(ex)}Object.assign(ex,patch);save();renderAll()}
-function markPaid(id,date){if(confirm("Mark this occurrence paid?"))setException(id,date,{status:"paid",paidAt:iso(new Date())})}
+
+function receiveIncome(id,date){
+ const item=[...state.recurring,...state.oneTime].find(x=>x.id===id);
+ const ok=confirm(`${item?.name||"Income"} has posted?\n\nTo avoid double-counting, update your CURRENT checking balance after the deposit. The forecast will then start from that balance and will not add this deposit again.`);
+ if(!ok)return;
+ quickBalanceDate.value=date;
+ quickBalance.focus();
+ quickBalance.scrollIntoView({behavior:"smooth",block:"center"});
+}
+
+function markPaid(id,date){
+ const item=[...state.recurring,...state.oneTime].find(x=>x.id===id);
+ if(item?.direction==="income")return receiveIncome(id,date);
+ if(confirm("Mark this occurrence paid?"))setException(id,date,{status:"paid",paidAt:iso(new Date())})
+}
 function skipItem(id,date){let item=[...state.recurring,...state.oneTime].find(x=>x.id===id);if(confirm(`Skip ${item?.name||"this item"} for this occurrence only?`))setException(id,date,{status:"skipped"})}
 function editAmount(id,date){let item=[...state.recurring,...state.oneTime].find(x=>x.id===id),v=prompt("Amount for this occurrence:",item?.amount??0);if(v!==null&&!isNaN(Number(v)))setException(id,date,{amount:Math.abs(Number(v))})}
 let activeMove={id:null,sourceDate:null,selectedDate:null};
