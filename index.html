@@ -178,7 +178,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 
 <script>
-const APP_VERSION=24;
+const APP_VERSION=25;
 const BASELINE={
  appVersion:APP_VERSION,startDate:"2026-08-03",currentBalance:-125.34,incomeName:"Salary",paycheck:3794.09,paySchedule:"semi",floor:300,spotMeLimit:200,includeWindfall:false,includeOptional:true,
  recurring:[
@@ -215,8 +215,8 @@ function migrate(s){
  (s.recurring||[]).forEach(x=>{if(!x.priority)x.priority=x.optional?"flexible":"high"});
  // Privacy + August plan migration for existing saved browser data.
  s.incomeName=s.incomeName||"Salary";
- const payItem=(s.recurring||[]).find(x=>x.id==="pay");
- if(payItem) payItem.name=s.incomeName;
+ const migrationPayItem=(s.recurring||[]).find(x=>x.id==="pay");
+ if(migrationPayItem) migrationPayItem.name=s.incomeName;
  s.recurring=(s.recurring||[]).filter(x=>!["rentcatch","latefee","regional1"].includes(x.id));
  const regional=(s.recurring||[]).find(x=>x.id==="regional2");
  if(regional) regional.name="Regional Finance";
