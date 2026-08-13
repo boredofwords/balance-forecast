@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Household Financial Command Center</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--ink:#172033;--muted:#6b7280;--line:#e5e7eb;--good:#0f766e;--warn:#b45309;--bad:#b91c1c;--accent:#4f46e5;--accent2:#eef2ff}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+header{padding:20px 24px;background:#111827;color:#fff;display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+header h1{margin:0;font-size:22px} header p{margin:4px 0 0;color:#cbd5e1;font-size:13px}
+.actions,.tabs,.row,.button-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row{justify-content:space-between}
+button,.btn{border:0;border-radius:10px;padding:9px 12px;font-weight:700;cursor:pointer;font:inherit}.primary{background:var(--accent);color:#fff}.secondary{background:#e5e7eb;color:#111827}.ghost{background:#fff;border:1px solid var(--line)}.danger{background:#fee2e2;color:#991b1b}.success{background:#d1fae5;color:#065f46}
+main{max-width:1280px;margin:auto;padding:18px}.tabs{margin-bottom:14px}.tab{background:#fff;border:1px solid var(--line)}.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.panel{display:none}.panel.active{display:block}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 5px 18px rgba(15,23,42,.04)}
+.metric .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.metric .value{font-size:27px;font-weight:850;margin-top:5px}.metric .sub,.note{font-size:12px;color:var(--muted);line-height:1.45}
+.wide{grid-column:span 3}.half{grid-column:span 2}.full{grid-column:1/-1} h2{font-size:16px;margin:0 0 12px} h3{font-size:14px;margin:0 0 8px}
+canvas{width:100%;height:290px;background:linear-gradient(180deg,#fafafa,#fff);border-radius:12px}
+label{font-size:12px;color:var(--muted);display:block;margin:0 0 5px} input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;font:inherit}
+.formgrid{display:grid;grid-template-columns:1.2fr .8fr .8fr .8fr auto;gap:8px;align-items:end}.settingsgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+table{width:100%;border-collapse:collapse;font-size:13px} th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top} th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)} td.amount{text-align:right;font-variant-numeric:tabular-nums}
+tr.low td{background:#fff7ed}tr.negative td{background:#fef2f2}.pill{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:750}.income{background:#ccfbf1;color:#115e59}.expense{background:#fee2e2;color:#991b1b}.windfall{background:#fef3c7;color:#92400e}.critical{background:#fee2e2;color:#991b1b}.high{background:#ffedd5;color:#9a3412}.medium{background:#fef3c7;color:#92400e}.flexible{background:#e0e7ff;color:#3730a3}
+.status{padding:11px 13px;border-radius:11px;font-size:13px;margin-bottom:12px}.status.good{background:#ecfdf5;color:#065f46}.status.warn{background:#fff7ed;color:#9a3412}.status.bad{background:#fef2f2;color:#991b1b}
+.bill-card,.allocation-row,.timeline-item,.goal-card{border:1px solid var(--line);border-radius:13px;padding:12px;margin-bottom:9px;background:#fff}.allocation-row{display:grid;grid-template-columns:auto 1fr 130px auto;gap:10px;align-items:center}.allocation-row input[type=checkbox]{width:auto}
+.timeline-item{display:grid;grid-template-columns:115px 1fr auto;gap:12px}.timeline-date{font-weight:800}.timeline-balance{font-weight:850}.summary-box{background:var(--accent2);border:1px solid #c7d2fe;border-radius:14px;padding:14px}
+.switchline{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}.switchline input{width:auto}.hidden{display:none}.muted{color:var(--muted)}.archived{opacity:.65}
+.compact button{padding:6px 8px;font-size:12px}
+.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;padding:18px;z-index:9999}
+.modal-backdrop.open{display:flex}
+.modal-card{width:min(520px,100%);background:#fff;border-radius:18px;padding:18px;box-shadow:0 24px 70px rgba(15,23,42,.3)}
+.modal-card h2{font-size:18px;margin-bottom:6px}
+.quick-date-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0}
+.quick-date{border:1px solid var(--line);background:#fff;text-align:left}
+.quick-date.selected{border-color:var(--accent);background:var(--accent2);color:#312e81}
+.audit-note{font-size:12px;color:var(--muted);padding:9px 10px;background:#f8fafc;border-radius:9px;margin-top:9px}
+
+@media(max-width:950px){.grid{grid-template-columns:1fr 1fr}.wide,.half{grid-column:span 2}.formgrid,.settingsgrid{grid-template-columns:1fr 1fr}.allocation-row{grid-template-columns:auto 1fr 110px}.allocation-row .priority{grid-column:2/-1}}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.wide,.half,.full{grid-column:span 1}.formgrid,.settingsgrid{grid-template-columns:1fr}.allocation-row{grid-template-columns:auto 1fr}.allocation-row input[type=number],.allocation-row .priority{grid-column:2}.timeline-item{grid-template-columns:1fr}.actions{width:100%}}
+
+html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+body{padding-bottom:env(safe-area-inset-bottom)}
+button,.btn,input,select{min-height:44px}
+header{padding-top:calc(18px + env(safe-area-inset-top))}
+.tabs{position:sticky;top:0;z-index:900;overflow-x:auto;flex-wrap:nowrap;padding:8px 0;background:rgba(245,247,251,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}.tab{white-space:nowrap;flex:0 0 auto}
+.mobile-install{display:none}
+@media(max-width:600px){
+ main{padding:12px}header{padding-left:16px;padding-right:16px}.actions button,.actions .btn{flex:1 1 auto;text-align:center}
+ .card{padding:13px}.quick-date-grid{grid-template-columns:1fr}.modal-backdrop{align-items:flex-end;padding:0}
+ .modal-card{width:100%;max-width:none;border-radius:20px 20px 0 0;max-height:calc(100dvh - 20px);overflow:auto;padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+ .mobile-install{display:block}
+}
+
+</style>
+
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Balance Forecast">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+
+</head>
+<body>
+<header>
+<div><h1>Household Financial Command Center</h1><p>Cash-flow forecasting preserved, with a new paycheck planner, bill actions, timeline, and goals.</p></div>
+<div class="actions"><button class="secondary" onclick="exportData()">Export</button><label class="btn secondary">Import<input id="importFile" class="hidden" type="file" accept=".json" onchange="importData(event)"></label><button class="danger" onclick="resetData()">Reset baseline</button></div>
+</header>
+<main>
+<div class="tabs">
+<button class="tab active" data-panel="forecast" onclick="showPanel('forecast')">Forecast</button>
+<button class="tab" data-panel="paycheck" onclick="showPanel('paycheck')">Paycheck Planner</button>
+<button class="tab" data-panel="bills" onclick="showPanel('bills')">Bills</button>
+<button class="tab" data-panel="timeline" onclick="showPanel('timeline')">Timeline</button>
+<button class="tab" data-panel="goals" onclick="showPanel('goals')">Goals</button>
+<button class="tab" data-panel="settings" onclick="showPanel('settings')">Settings</button>
+</div>
+
+<section id="forecast" class="panel active">
+
+<div class="card full mobile-install" style="margin-bottom:12px">
+  <strong>Install on iPhone</strong>
+  <p class="note" style="margin:6px 0 0">Open this site in Safari, tap Share, then tap <b>Add to Home Screen</b>.</p>
+</div>
+
+<div id="statusBox"></div>
+<div class="grid">
+<div class="card metric"><div class="label">Current checking</div><div class="value" id="currentBalance"></div><div class="sub">Manual balance snapshot; editable in Settings</div></div>
+<div class="card metric"><div class="label">Next paycheck</div><div class="value" id="nextPaycheck"></div><div class="sub" id="nextPayDate"></div></div>
+<div class="card metric"><div class="label">Lowest projected balance</div><div class="value" id="lowestBalance"></div><div class="sub" id="lowestDate"></div></div>
+<div class="card metric"><div class="label">Safe extra today</div><div class="value" id="safeExtra"></div><div class="sub">Above your selected floor</div></div>
+<div class="card metric"><div class="label">SpotMe remaining</div><div class="value" id="spotMeRemaining"></div><div class="sub">Before the –$200 hard limit</div></div>
+
+<div class="card wide"><div class="row"><h2>Balance forecast</h2><span class="note">Quarterly windfalls remain excluded by default.</span></div><canvas id="chart" width="1000" height="320"></canvas></div>
+<div class="card"><h2>Scenario settings</h2>
+<div class="switchline"><span>Include quarterly windfall</span><input id="includeWindfall" type="checkbox" onchange="saveScenario()"></div>
+<div class="switchline"><span>Include optional subscriptions</span><input id="includeOptional" type="checkbox" onchange="saveScenario()"></div>
+<div style="margin-top:10px"><label>Preferred balance floor</label><input id="floorInput" type="number" step="25" onchange="saveScenario()"></div>
+<div style="margin-top:10px"><label>SpotMe overdraft limit</label><input id="spotMeInput" type="number" step="25" onchange="saveScenario()"></div>
+<div style="margin-top:10px"><label>Landlord late fee estimate</label><input id="lateFeeInput" type="number" onchange="updateLateFee()"></div>
+</div>
+
+<div class="card wide"><div class="row"><h2>Forecast ledger</h2><div><label>Show through</label><select id="rangeSelect" onchange="renderAll()"><option value="30">30 days</option><option value="60">60 days</option><option value="90" selected>90 days</option><option value="180">180 days</option></select></div></div>
+<div style="overflow:auto;max-height:530px"><table><thead><tr><th>Date</th><th>Item</th><th>Type</th><th class="amount">Amount</th><th class="amount">Balance</th><th>Actions</th></tr></thead><tbody id="ledgerBody"></tbody></table></div></div>
+<div class="card"><h2>Add one-time item</h2><div style="display:grid;gap:9px"><div><label>Name</label><input id="newName"></div><div><label>Date</label><input id="newDate" type="date"></div><div><label>Amount</label><input id="newAmount" type="number" step=".01"></div><div><label>Direction</label><select id="newDirection"><option value="expense">Expense</option><option value="income">Income</option></select></div><button class="primary" onclick="addOneTime()">Add to forecast</button></div></div>
+</div>
+</section>
+
+<section id="paycheck" class="panel">
+<div class="grid">
+<div class="card full"><div class="row"><div><h2>Paycheck Planner</h2><p class="note">This creates a proposed allocation only. Nothing is marked paid until you apply the plan.</p></div><button class="primary" onclick="buildPaycheckPlan()">Build plan</button></div>
+<div class="settingsgrid"><div><label>Paycheck date</label><input id="plannerDate" type="date" onchange="buildPaycheckPlan()"></div><div><label>Expected deposit</label><input id="plannerDeposit" type="number" step=".01" onchange="buildPaycheckPlan()"></div><div><label>Next paycheck date</label><input id="plannerNextDate" type="date" onchange="buildPaycheckPlan()"></div><div><label>Protected floor</label><input id="plannerFloor" type="number" step="25" onchange="buildPaycheckPlan()"></div></div></div>
+<div class="card half summary-box"><h2>Paycheck summary</h2><div id="plannerSummary"></div></div>
+<div class="card half"><div class="row"><h2>Suggested allocations</h2><button class="success" onclick="applyPaycheckPlan()">Apply selected plan</button></div><div id="allocationList"></div></div>
+<div class="card full"><h2>Allocation result</h2><div id="allocationResult" class="note">Build a plan to see the projected balance after each selected payment.</div></div>
+</div>
+</section>
+
+<section id="bills" class="panel">
+<div class="grid">
+<div class="card full"><div class="row"><div><h2>Bills and recurring items</h2><p class="note">Actions now work. One-occurrence changes do not alter future months unless you choose “Change recurring.”</p></div><button class="secondary" onclick="toggleArchived()">Show/hide archived</button></div><div id="billCards"></div></div>
+<div class="card full"><h2>Add recurring item</h2><div class="formgrid"><div><label>Name</label><input id="recName"></div><div><label>Amount</label><input id="recAmount" type="number" step=".01"></div><div><label>First date</label><input id="recDate" type="date"></div><div><label>Frequency</label><select id="recFrequency"><option value="monthly">Monthly</option><option value="semimonthly">Semi-monthly</option><option value="biweekly">Every 2 weeks</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></div><button class="primary" onclick="addRecurring()">Add recurring</button></div></div>
+</div>
+</section>
+
+<section id="timeline" class="panel"><div class="card"><div class="row"><div><h2>Timeline</h2><p class="note">A chronological view of what happens next.</p></div><select id="timelineRange" style="width:auto" onchange="renderTimeline()"><option value="30">30 days</option><option value="60">60 days</option><option value="90" selected>90 days</option></select></div><div id="timelineList"></div></div></section>
+
+<section id="goals" class="panel"><div class="grid"><div class="card full"><div class="row"><div><h2>Goals</h2><p class="note">Quarterly bonus and stock proceeds stay separate from ordinary bills and can be assigned here.</p></div><button class="primary" onclick="addGoal()">Add goal</button></div><div id="goalList"></div></div><div class="card full"><h2>Quarterly windfall planner</h2><div class="settingsgrid"><div><label>Expected windfall</label><input id="windfallAmount" type="number" value="10000" oninput="renderGoals()"></div><div><label>Emergency savings %</label><input id="windfallEmergency" type="number" value="40" oninput="renderGoals()"></div><div><label>Vacation %</label><input id="windfallVacation" type="number" value="20" oninput="renderGoals()"></div><div><label>Big-ticket items %</label><input id="windfallBig" type="number" value="40" oninput="renderGoals()"></div></div><div id="windfallResult" style="margin-top:12px"></div></div></div></section>
+
+<section id="settings" class="panel"><div class="grid"><div class="card full"><h2>Core settings</h2><div class="settingsgrid"><div><label>Current checking balance</label><input id="settingBalance" type="number" step=".01" onchange="saveSettings()"></div><div><label>Regular paycheck</label><input id="settingPaycheck" type="number" step=".01" onchange="saveSettings()"></div><div><label>Pay schedule</label><select id="settingPaySchedule" onchange="saveSettings()"><option value="semi">15th & month-end</option><option value="biweekly">Every 2 weeks</option></select></div><div><label>Forecast start</label><input id="settingStart" type="date" onchange="saveSettings()"></div></div><p class="note">Everything is stored in this browser. Export a backup before clearing browser data or moving devices.</p></div></div></section>
+</main>
+
+<div id="moveModal" class="modal-backdrop" onclick="closeMoveModal(event)">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="row">
+      <div>
+        <h2>Move this payment</h2>
+        <div id="moveModalItem" class="note"></div>
+      </div>
+      <button class="secondary" onclick="closeMoveModal()">✕</button>
+    </div>
+
+    <div class="quick-date-grid">
+      <button id="quickNextPaycheck" class="quick-date" onclick="chooseMoveDate('nextPaycheck')">
+        <strong>Next paycheck</strong>
+        <div id="quickNextPaycheckLabel" class="note"></div>
+      </button>
+      <button id="quickFirstNextMonth" class="quick-date" onclick="chooseMoveDate('firstNextMonth')">
+        <strong>First-of-month paycheck</strong>
+        <div id="quickFirstNextMonthLabel" class="note"></div>
+      </button>
+      <button id="quickSecondNextMonth" class="quick-date" onclick="chooseMoveDate('secondNextMonth')">
+        <strong>Second paycheck next month</strong>
+        <div id="quickSecondNextMonthLabel" class="note"></div>
+      </button>
+      <button id="quickCustom" class="quick-date" onclick="chooseMoveDate('custom')">
+        <strong>Custom date</strong>
+        <div class="note">Choose any date below</div>
+      </button>
+    </div>
+
+    <div>
+      <label>New payment date</label>
+      <input id="moveDateInput" type="date" oninput="selectCustomMoveDate()">
+    </div>
+    <div style="margin-top:10px">
+      <label>Reason or arrangement note</label>
+      <input id="moveReasonInput" placeholder="Example: payment arrangement">
+    </div>
+    <div id="moveAuditPreview" class="audit-note"></div>
+
+    <div class="button-row" style="justify-content:flex-end;margin-top:16px">
+      <button class="secondary" onclick="closeMoveModal()">Cancel</button>
+      <button class="primary" onclick="confirmMoveDate()">Move payment</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+const APP_VERSION=22;
+const BASELINE={
+ appVersion:APP_VERSION,startDate:"2026-08-03",currentBalance:-125.34,paycheck:3794.09,paySchedule:"semi",floor:300,spotMeLimit:200,includeWindfall:false,includeOptional:true,
+ recurring:[
+ {id:"pay",name:"Indeed paycheck",amount:3794.09,direction:"income",date:"2026-08-15",frequency:"semimonthly",category:"Income",optional:false,priority:"critical"},
+ {id:"mypay",name:"MyPay repayment",amount:500,direction:"expense",date:"2026-08-15",frequency:"one",category:"Debt",optional:false,priority:"critical"},
+ {id:"mypayfee",name:"MyPay fee",amount:5,direction:"expense",date:"2026-08-15",frequency:"one",category:"Debt",optional:false,priority:"critical"},
+ {id:"rentcatch",name:"Rent catch-up",amount:475,direction:"expense",date:"2026-08-15",frequency:"one",category:"Housing",optional:false,priority:"critical"},
+ {id:"latefee",name:"Landlord late fee",amount:0,direction:"expense",date:"2026-08-15",frequency:"one",category:"Housing",optional:false,priority:"high"},
+ {id:"bridgecrest",name:"Bridgecrest car payment",amount:779,direction:"expense",date:"2026-08-15",frequency:"monthly",category:"Transportation",optional:false,priority:"critical"},
+ {id:"geico",name:"GEICO",amount:279.36,direction:"expense",date:"2026-08-15",frequency:"monthly",category:"Insurance",optional:false,priority:"critical"},
+ {id:"verizon",name:"Verizon catch-up",amount:361,direction:"expense",date:"2026-08-15",frequency:"one",category:"Bills",optional:false,priority:"high"},
+ {id:"instantloan",name:"Instant loan payment",amount:73.33,direction:"expense",date:"2026-08-15",frequency:"monthly",category:"Debt",optional:false,priority:"high"},
+ {id:"regional1",name:"Regional Finance",amount:229.95,direction:"expense",date:"2026-08-16",frequency:"monthly",category:"Debt",optional:false,priority:"high"},
+ {id:"utilities",name:"City utilities",amount:452.13,direction:"expense",date:"2026-08-22",frequency:"monthly",category:"Bills",optional:false,priority:"critical"},
+ {id:"regional2",name:"Regional Finance second payment",amount:244.40,direction:"expense",date:"2026-08-28",frequency:"monthly",category:"Debt",optional:false,priority:"high"},
+ {id:"spectrum",name:"Spectrum",amount:255.50,direction:"expense",date:"2026-08-31",frequency:"monthly",category:"Bills",optional:false,priority:"high"},
+ {id:"rent",name:"Rent",amount:2595,direction:"expense",date:"2026-09-01",frequency:"monthly",category:"Housing",optional:false,priority:"critical"},
+ {id:"groceries",name:"Groceries & household reserve",amount:350,direction:"expense",date:"2026-08-16",frequency:"semimonthly",category:"Food",optional:false,priority:"critical"},
+ {id:"gas",name:"Gas & transportation reserve",amount:125,direction:"expense",date:"2026-08-16",frequency:"semimonthly",category:"Transportation",optional:false,priority:"critical"},
+ {id:"spotify",name:"Spotify",amount:36.78,direction:"expense",date:"2026-09-02",frequency:"monthly",category:"Subscriptions",optional:true,priority:"flexible"},
+ {id:"peacock",name:"Peacock via Spectrum",amount:6.53,direction:"expense",date:"2026-08-17",frequency:"monthly",category:"Subscriptions",optional:true,priority:"flexible"},
+ {id:"googleworkspace",name:"Google Workspace (domain & email)",amount:7.22,direction:"expense",date:"2026-09-01",frequency:"monthly",category:"Subscriptions",optional:true,priority:"medium"},
+ {id:"calendarbridge",name:"CalendarBridge",amount:5,direction:"expense",date:"2026-08-31",frequency:"monthly",category:"Subscriptions",optional:true,priority:"flexible"},
+ {id:"targetbilling",name:"Target billing",amount:4.99,direction:"expense",date:"2026-08-29",frequency:"monthly",category:"Subscriptions",optional:true,priority:"flexible"},
+ {id:"windfall",name:"Quarterly bonus + stock bucket",amount:10000,direction:"income",date:"2026-08-28",frequency:"quarterly",category:"Windfall",optional:false,windfall:true,priority:"flexible"}
+ ],
+ oneTime:[],exceptions:[],archived:[],paused:[],goals:[
+ {id:"emergency",name:"Emergency fund",target:3000,saved:0},
+ {id:"vacation",name:"Vacation",target:3000,saved:0},
+ {id:"bigitems",name:"Big-ticket household needs",target:5000,saved:0}
+ ]
+};
+function clone(x){return JSON.parse(JSON.stringify(x))}
+function migrate(s){
+ s=s||clone(BASELINE); s.oneTime=s.oneTime||[];s.exceptions=s.exceptions||[];s.archived=s.archived||[];s.paused=s.paused||[];s.goals=s.goals||clone(BASELINE.goals);
+ if(s.spotMeLimit==null)s.spotMeLimit=200;if(s.floor==null)s.floor=300;if(s.includeOptional==null)s.includeOptional=true;
+ (s.recurring||[]).forEach(x=>{if(!x.priority)x.priority=x.optional?"flexible":"high"});
+ s.appVersion=APP_VERSION;return s;
+}
+let state=migrate(JSON.parse(localStorage.getItem("balanceForecastState")||"null"));
+
+const requestedRegionalMoveKey=occurrenceKey("regional2","2026-08-28");
+let requestedRegionalMove=state.exceptions.find(x=>x.key===requestedRegionalMoveKey);
+if(!requestedRegionalMove){
+ state.exceptions.push({
+  key:requestedRegionalMoveKey,
+  id:"regional2",
+  sourceDate:"2026-08-28",
+  date:"2026-09-01",
+  moveReason:"Moved to first-of-month paycheck",
+  movedAt:"2026-08-03"
+ });
+}
+
+save();
+function save(){localStorage.setItem("balanceForecastState",JSON.stringify(state))}
+function money(n){return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(n||0)}
+function parseDate(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)}
+function iso(d){return new Date(d).toISOString().slice(0,10)}
+function addMonths(date,n){const d=new Date(date),day=d.getDate();d.setMonth(d.getMonth()+n);if(d.getDate()<day)d.setDate(0);return d}
+function endOfMonth(d){return new Date(d.getFullYear(),d.getMonth()+1,0)}
+function nextSemi(d){if(d.getDate()===15)return endOfMonth(d);if(d.getDate()===endOfMonth(d).getDate())return new Date(d.getFullYear(),d.getMonth()+1,15);return d.getDate()<15?new Date(d.getFullYear(),d.getMonth(),15):endOfMonth(d)}
+function occurrenceKey(id,date){return id+"@"+date}
+function isArchived(id){return state.archived.includes(id)} function isPaused(id){return state.paused.includes(id)}
+function getException(id,date){return state.exceptions.find(x=>x.key===occurrenceKey(id,date))}
+function occurrences(item,start,end){
+ let dates=[],d=parseDate(item.date);if(item.frequency==="one"){if(d>=start&&d<=end)dates.push(d);return dates}
+ while(d<start){if(item.frequency==="monthly")d=addMonths(d,1);else if(item.frequency==="quarterly")d=addMonths(d,3);else if(item.frequency==="annual")d=addMonths(d,12);else if(item.frequency==="biweekly")d=new Date(d.getTime()+14*864e5);else if(item.frequency==="semimonthly")d=nextSemi(d);else break}
+ while(d<=end){dates.push(new Date(d));if(item.frequency==="monthly")d=addMonths(d,1);else if(item.frequency==="quarterly")d=addMonths(d,3);else if(item.frequency==="annual")d=addMonths(d,12);else if(item.frequency==="biweekly")d=new Date(d.getTime()+14*864e5);else if(item.frequency==="semimonthly")d=nextSemi(d);else break}
+ return dates
+}
+function buildForecast(days=365){
+ const start=parseDate(state.startDate),end=new Date(start.getTime()+days*864e5),events=[];
+ [...state.recurring,...state.oneTime].forEach(item=>{
+  if(isArchived(item.id)||isPaused(item.id))return;if(item.optional&&!state.includeOptional)return;if(item.windfall&&!state.includeWindfall)return;
+  occurrences(item,start,end).forEach(d=>{
+   let date=iso(d),ex=getException(item.id,date);if(ex?.status==="paid"||ex?.status==="skipped")return;
+   if(ex?.date)date=ex.date;let amount=ex?.amount??item.amount;events.push({...item,eventDate:date,amount,sourceDate:iso(d)})
+  })
+ });
+ events.sort((a,b)=>a.eventDate.localeCompare(b.eventDate)||(a.direction==="income"?-1:1));let bal=state.currentBalance;
+ return events.map(e=>{bal+=e.direction==="income"?e.amount:-e.amount;return {...e,balance:bal}})
+}
+function showPanel(id){document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.panel===id));if(id==="paycheck")buildPaycheckPlan();if(id==="bills")renderBills();if(id==="timeline")renderTimeline();if(id==="goals")renderGoals()}
+function renderAll(){renderForecast();renderBills();renderTimeline();renderGoals();initPlannerDefaults()}
+function renderForecast(){
+ const events=buildForecast(),range=Number(document.getElementById("rangeSelect")?.value||90),visible=events.filter(e=>(parseDate(e.eventDate)-parseDate(state.startDate))/864e5<=range),balances=[state.currentBalance,...visible.map(e=>e.balance)],low=Math.min(...balances),lowEvent=visible.find(e=>e.balance===low),nextPay=events.find(e=>e.direction==="income"&&!e.windfall);
+ currentBalance.textContent=money(state.currentBalance);nextPaycheck.textContent=nextPay?money(nextPay.amount):"—";nextPayDate.textContent=nextPay?new Date(nextPay.eventDate+"T12:00:00").toLocaleDateString():"";
+ lowestBalance.textContent=money(low);lowestBalance.style.color=low<0?"var(--bad)":low<state.floor?"var(--warn)":"var(--good)";lowestDate.textContent=lowEvent?new Date(lowEvent.eventDate+"T12:00:00").toLocaleDateString():"Today";safeExtra.textContent=money(Math.max(0,low-state.floor));
+ const hard=-Math.abs(state.spotMeLimit),spot=Math.max(0,state.currentBalance-hard);spotMeRemaining.textContent=money(spot);spotMeRemaining.style.color=spot<50?"var(--bad)":spot<100?"var(--warn)":"var(--good)";
+ statusBox.innerHTML=low<hard?`<div class="status bad"><strong>SpotMe limit exceeded:</strong> forecast reaches ${money(low)}.</div>`:low<0?`<div class="status warn"><strong>SpotMe would be used:</strong> forecast reaches ${money(low)}; ${money(low-hard)} remains before the hard limit.</div>`:low<state.floor?`<div class="status warn"><strong>Tight forecast:</strong> lowest balance ${money(low)} is below your ${money(state.floor)} floor.</div>`:`<div class="status good"><strong>Forecast stays above your floor.</strong> Lowest projected balance ${money(low)}.</div>`;
+ ledgerBody.innerHTML=visible.map(e=>`<tr class="${e.balance<0?"negative":e.balance<state.floor?"low":""}"><td>${new Date(e.eventDate+"T12:00:00").toLocaleDateString()}</td><td>${e.name}${e.eventDate!==e.sourceDate?`<div class="note">Moved from ${new Date(e.sourceDate+"T12:00:00").toLocaleDateString()}${getException(e.id,e.sourceDate)?.moveReason?` · ${getException(e.id,e.sourceDate).moveReason}`:""}</div>`:""}</td><td><span class="pill ${e.windfall?"windfall":e.direction}">${e.windfall?"windfall":e.direction}</span></td><td class="amount">${e.direction==="income"?"+":"−"}${money(e.amount)}</td><td class="amount"><strong>${money(e.balance)}</strong></td><td class="compact"><button class="success" onclick="markPaid('${e.id}','${e.sourceDate}')">✅ Paid</button><button class="secondary" onclick="skipItem('${e.id}','${e.sourceDate}')">⏭ Skip</button><button class="secondary" onclick="editAmount('${e.id}','${e.sourceDate}')">✏️ Edit</button><button class="secondary" onclick="moveDueDate('${e.id}','${e.sourceDate}')">📅 Move</button></td></tr>`).join("");
+ includeWindfall.checked=state.includeWindfall;includeOptional.checked=state.includeOptional;floorInput.value=state.floor;spotMeInput.value=state.spotMeLimit;lateFeeInput.value=state.recurring.find(x=>x.id==="latefee")?.amount||0;settingBalance.value=state.currentBalance;settingPaycheck.value=state.paycheck;settingPaySchedule.value=state.paySchedule;settingStart.value=state.startDate;drawChart(visible)
+}
+function drawChart(events){
+ const c=chart,ctx=c.getContext("2d"),W=c.width,H=c.height,p=42;ctx.clearRect(0,0,W,H);const pts=[{eventDate:state.startDate,balance:state.currentBalance},...events];if(!pts.length)return;
+ const hard=-Math.abs(state.spotMeLimit),vals=pts.map(x=>x.balance),min=Math.min(...vals,state.floor,hard,0),max=Math.max(...vals,state.floor,0),span=Math.max(1,max-min),x=i=>p+i*(W-2*p)/Math.max(1,pts.length-1),y=v=>H-p-(v-min)*(H-2*p)/span;
+ ctx.strokeStyle="#e5e7eb";for(let i=0;i<5;i++){let yy=p+i*(H-2*p)/4;ctx.beginPath();ctx.moveTo(p,yy);ctx.lineTo(W-p,yy);ctx.stroke()}
+ [[state.floor,"#b45309",`Floor ${money(state.floor)}`],[hard,"#b91c1c",`SpotMe ${money(hard)}`]].forEach(([v,col,label])=>{ctx.strokeStyle=col;ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(p,y(v));ctx.lineTo(W-p,y(v));ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=col;ctx.font="12px sans-serif";ctx.fillText(label,p+4,y(v)-5)});
+ ctx.strokeStyle="#4f46e5";ctx.lineWidth=3;ctx.beginPath();pts.forEach((pt,i)=>i?ctx.lineTo(x(i),y(pt.balance)):ctx.moveTo(x(i),y(pt.balance)));ctx.stroke();pts.forEach((pt,i)=>{ctx.fillStyle=pt.balance<0?"#b91c1c":pt.balance<state.floor?"#b45309":"#0f766e";ctx.beginPath();ctx.arc(x(i),y(pt.balance),3.4,0,Math.PI*2);ctx.fill()})
+}
+function saveScenario(){state.includeWindfall=includeWindfall.checked;state.includeOptional=includeOptional.checked;state.floor=Number(floorInput.value)||0;state.spotMeLimit=Math.abs(Number(spotMeInput.value)||0);save();renderAll()}
+function updateLateFee(){let x=state.recurring.find(x=>x.id==="latefee");if(x)x.amount=Number(lateFeeInput.value)||0;save();renderAll()}
+function saveSettings(){state.currentBalance=Number(settingBalance.value)||0;state.paycheck=Number(settingPaycheck.value)||0;state.paySchedule=settingPaySchedule.value;state.startDate=settingStart.value;let p=state.recurring.find(x=>x.id==="pay");if(p){p.amount=state.paycheck;p.frequency=state.paySchedule==="semi"?"semimonthly":"biweekly"}save();renderAll()}
+function addOneTime(){let name=newName.value.trim(),date=newDate.value,amount=Math.abs(Number(newAmount.value)),direction=newDirection.value;if(!name||!date||!amount)return alert("Add a name, date, and amount.");state.oneTime.push({id:"ot"+Date.now(),name,date,amount,direction,frequency:"one",category:"Other",optional:false,priority:"medium"});newName.value="";newAmount.value="";save();renderAll()}
+function addRecurring(){let name=recName.value.trim(),date=recDate.value,amount=Math.abs(Number(recAmount.value));if(!name||!date||!amount)return alert("Add a name, first date, and amount.");state.recurring.push({id:"r"+Date.now(),name,date,amount,direction:"expense",frequency:recFrequency.value,category:"Bills",optional:false,priority:"medium"});recName.value="";recAmount.value="";save();renderAll()}
+function setException(id,date,patch){let key=occurrenceKey(id,date),ex=state.exceptions.find(x=>x.key===key);if(!ex){ex={key,id,sourceDate:date};state.exceptions.push(ex)}Object.assign(ex,patch);save();renderAll()}
+function markPaid(id,date){if(confirm("Mark this occurrence paid?"))setException(id,date,{status:"paid",paidAt:iso(new Date())})}
+function skipItem(id,date){let item=[...state.recurring,...state.oneTime].find(x=>x.id===id);if(confirm(`Skip ${item?.name||"this item"} for this occurrence only?`))setException(id,date,{status:"skipped"})}
+function editAmount(id,date){let item=[...state.recurring,...state.oneTime].find(x=>x.id===id),v=prompt("Amount for this occurrence:",item?.amount??0);if(v!==null&&!isNaN(Number(v)))setException(id,date,{amount:Math.abs(Number(v))})}
+let activeMove={id:null,sourceDate:null,selectedDate:null};
+function firstOfNextMonth(date){
+ const d=parseDate(date);return iso(new Date(d.getFullYear(),d.getMonth()+1,1))
+}
+function fifteenthOfNextMonth(date){
+ const d=parseDate(date);return iso(new Date(d.getFullYear(),d.getMonth()+1,15))
+}
+function nextPaycheckForMove(date){
+ const d=parseDate(date);
+ if(state.paySchedule==="biweekly")return iso(new Date(d.getTime()+14*864e5));
+ return iso(nextSemi(d))
+}
+function moveDueDate(id,date){
+ const item=[...state.recurring,...state.oneTime].find(x=>x.id===id);
+ if(!item)return alert("This payment could not be found.");
+ activeMove={id,sourceDate:date,selectedDate:null};
+ const nextPay=nextPaycheckForMove(date);
+ const firstNext=nextPay;
+ const secondNext=fifteenthOfNextMonth(date);
+ moveModalItem.textContent=`${item.name} · ${money(getException(id,date)?.amount??item.amount)} · originally ${new Date(date+"T12:00:00").toLocaleDateString()}`;
+ quickNextPaycheckLabel.textContent=new Date(nextPay+"T12:00:00").toLocaleDateString();
+ quickFirstNextMonthLabel.textContent=new Date(firstNext+"T12:00:00").toLocaleDateString();
+ quickSecondNextMonthLabel.textContent=new Date(secondNext+"T12:00:00").toLocaleDateString();
+ moveDateInput.value="";
+ moveReasonInput.value="";
+ document.querySelectorAll(".quick-date").forEach(x=>x.classList.remove("selected"));
+ updateMoveAuditPreview();
+ moveModal.classList.add("open");
+}
+function chooseMoveDate(kind){
+ let date;
+ if(kind==="nextPaycheck")date=nextPaycheckForMove(activeMove.sourceDate);
+ else if(kind==="firstNextMonth")date=nextPaycheckForMove(activeMove.sourceDate);
+ else if(kind==="secondNextMonth")date=fifteenthOfNextMonth(activeMove.sourceDate);
+ else {moveDateInput.focus();document.querySelectorAll(".quick-date").forEach(x=>x.classList.remove("selected"));quickCustom.classList.add("selected");return}
+ activeMove.selectedDate=date;moveDateInput.value=date;
+ document.querySelectorAll(".quick-date").forEach(x=>x.classList.remove("selected"));
+ ({nextPaycheck:quickNextPaycheck,firstNextMonth:quickFirstNextMonth,secondNextMonth:quickSecondNextMonth}[kind]).classList.add("selected");
+ updateMoveAuditPreview();
+}
+function selectCustomMoveDate(){
+ activeMove.selectedDate=moveDateInput.value;
+ document.querySelectorAll(".quick-date").forEach(x=>x.classList.remove("selected"));
+ quickCustom.classList.add("selected");
+ updateMoveAuditPreview();
+}
+function updateMoveAuditPreview(){
+ const original=activeMove.sourceDate?new Date(activeMove.sourceDate+"T12:00:00").toLocaleDateString():"—";
+ const moved=activeMove.selectedDate?new Date(activeMove.selectedDate+"T12:00:00").toLocaleDateString():"Choose a date";
+ moveAuditPreview.textContent=`Originally: ${original}  →  Moved to: ${moved}`;
+}
+function confirmMoveDate(){
+ const date=moveDateInput.value||activeMove.selectedDate;
+ if(!date)return alert("Choose a new payment date.");
+ const reason=moveReasonInput.value.trim()||"Moved in forecast";
+ setException(activeMove.id,activeMove.sourceDate,{date,moveReason:reason,movedAt:iso(new Date())});
+ closeMoveModal();
+}
+function closeMoveModal(event){
+ if(event&&event.target!==moveModal)return;
+ moveModal.classList.remove("open");
+ activeMove={id:null,sourceDate:null,selectedDate:null};
+}
+function changeRecurring(id){let item=state.recurring.find(x=>x.id===id);if(!item)return;let a=prompt("New recurring amount:",item.amount);if(a===null)return;let d=prompt("New recurring first/next date (YYYY-MM-DD):",item.date);if(!d)return;let f=prompt("Frequency: monthly, semimonthly, biweekly, quarterly, annual, or one",item.frequency);if(!["monthly","semimonthly","biweekly","quarterly","annual","one"].includes(f))return alert("Frequency not recognized.");item.amount=Math.abs(Number(a));item.date=d;item.frequency=f;save();renderAll()}
+function pauseRecurring(id){if(state.paused.includes(id))state.paused=state.paused.filter(x=>x!==id);else state.paused.push(id);save();renderAll()}
+function archiveRecurring(id){if(confirm("Archive this recurring item? History is preserved and you can restore it later.")){if(!state.archived.includes(id))state.archived.push(id);save();renderAll()}}
+function restoreRecurring(id){state.archived=state.archived.filter(x=>x!==id);save();renderAll()}
+let showArchived=false;function toggleArchived(){showArchived=!showArchived;renderBills()}
+function renderBills(){
+ billCards.innerHTML=state.recurring.filter(x=>showArchived||!isArchived(x.id)).map(r=>`<div class="bill-card ${isArchived(r.id)?"archived":""}"><div class="row"><div><strong>${r.name}</strong><div class="note">${r.date} · ${r.frequency} · ${money(r.amount)} · <span class="pill ${r.priority}">${r.priority}</span>${r.optional?" · optional":""}</div></div><div class="button-row compact">${isArchived(r.id)?`<button class="success" onclick="restoreRecurring('${r.id}')">Restore</button>`:`<button class="secondary" onclick="changeRecurring('${r.id}')">🔁 Change recurring</button><button class="secondary" onclick="pauseRecurring('${r.id}')">${isPaused(r.id)?"▶ Resume":"💤 Pause"}</button><button class="danger" onclick="archiveRecurring('${r.id}')">🗑 Archive</button>`}</div></div></div>`).join("")
+}
+function nextPayDateAfter(date){let d=parseDate(date);return iso(state.paySchedule==="semi"?nextSemi(d):new Date(d.getTime()+14*864e5))}
+function initPlannerDefaults(){let events=buildForecast(),pay=events.find(e=>e.direction==="income"&&!e.windfall);if(pay&&!plannerDate.value){plannerDate.value=pay.eventDate;plannerDeposit.value=pay.amount;plannerNextDate.value=nextPayDateAfter(pay.eventDate);plannerFloor.value=state.floor}}
+function priorityRank(p){return {critical:0,high:1,medium:2,flexible:3}[p]??2}
+let plannerItems=[];
+function buildPaycheckPlan(){
+ if(!plannerDate.value)initPlannerDefaults();let pd=plannerDate.value||state.startDate,nd=plannerNextDate.value||nextPayDateAfter(pd),deposit=Number(plannerDeposit.value)||state.paycheck,floor=Number(plannerFloor.value)||state.floor;
+ let start=parseDate(pd),end=parseDate(nd),events=buildForecast().filter(e=>e.direction==="expense"&&parseDate(e.eventDate)>=start&&parseDate(e.eventDate)<end);
+ plannerItems=events.sort((a,b)=>priorityRank(a.priority)-priorityRank(b.priority)||a.eventDate.localeCompare(b.eventDate)).map((e,i)=>({...e,selected:e.priority!=="flexible",planAmount:e.amount,planId:"p"+i}));
+ plannerSummary.innerHTML=`<div><strong>Starting balance:</strong> ${money(state.currentBalance)}</div><div><strong>Expected deposit:</strong> ${money(deposit)}</div><div><strong>Available after deposit:</strong> ${money(state.currentBalance+deposit)}</div><div><strong>Protected floor:</strong> ${money(floor)}</div>`;
+ allocationList.innerHTML=plannerItems.map(x=>`<div class="allocation-row"><input type="checkbox" ${x.selected?"checked":""} onchange="updatePlanItem('${x.planId}',this.checked,null)"><div><strong>${x.name}</strong><div class="note">Due ${x.eventDate}</div></div><input type="number" step=".01" value="${x.planAmount}" oninput="updatePlanItem('${x.planId}',null,this.value)"><span class="pill ${x.priority} priority">${x.priority}</span></div>`).join("");
+ renderAllocationResult()
+}
+function updatePlanItem(id,selected,amount){let x=plannerItems.find(x=>x.planId===id);if(selected!==null)x.selected=selected;if(amount!==null&&!isNaN(Number(amount)))x.planAmount=Math.abs(Number(amount));renderAllocationResult()}
+function renderAllocationResult(){let bal=state.currentBalance+(Number(plannerDeposit.value)||0),rows=[];plannerItems.filter(x=>x.selected).forEach(x=>{bal-=x.planAmount;rows.push(`<div class="row"><span>${x.name}</span><span>${money(x.planAmount)} → <strong>${money(bal)}</strong></span></div>`)});let floor=Number(plannerFloor.value)||0,hard=-Math.abs(state.spotMeLimit);allocationResult.innerHTML=rows.join("")+`<hr><div class="row"><strong>Remaining after selected payments</strong><strong>${money(bal)}</strong></div><div class="status ${bal<hard?"bad":bal<floor?"warn":"good"}" style="margin-top:10px">${bal<hard?"Plan exceeds SpotMe limit.":bal<0?"Plan uses SpotMe.":bal<floor?"Plan falls below your preferred floor.":"Plan stays above your preferred floor."}</div>`}
+function applyPaycheckPlan(){if(!plannerItems.length)return;let selected=plannerItems.filter(x=>x.selected);if(!confirm(`Apply ${selected.length} planned allocations to the forecast? This changes occurrence amounts but does not mark them paid.`))return;selected.forEach(x=>setException(x.id,x.sourceDate,{amount:x.planAmount}));showPanel("forecast")}
+function renderTimeline(){let days=Number(timelineRange?.value||90),events=buildForecast(days);timelineList.innerHTML=`<div class="timeline-item"><div class="timeline-date">Today</div><div>Current checking balance</div><div class="timeline-balance">${money(state.currentBalance)}</div></div>`+events.map(e=>`<div class="timeline-item ${e.balance<0?"negative":""}"><div class="timeline-date">${new Date(e.eventDate+"T12:00:00").toLocaleDateString()}</div><div><strong>${e.name}</strong><div class="note">${e.direction==="income"?"Deposit":"Payment"} ${money(e.amount)}</div></div><div class="timeline-balance">${money(e.balance)}</div></div>`).join("")}
+function addGoal(){let name=prompt("Goal name:");if(!name)return;let target=Number(prompt("Target amount:","1000"));if(!target)return;state.goals.push({id:"g"+Date.now(),name,target,saved:0});save();renderGoals()}
+function editGoal(id){let g=state.goals.find(x=>x.id===id);let saved=prompt("Current saved amount:",g.saved);if(saved!==null&&!isNaN(Number(saved))){g.saved=Math.max(0,Number(saved));save();renderGoals()}}
+function renderGoals(){goalList.innerHTML=state.goals.map(g=>{let pct=Math.min(100,Math.round(g.saved/g.target*100)||0);return `<div class="goal-card"><div class="row"><div><strong>${g.name}</strong><div class="note">${money(g.saved)} of ${money(g.target)} · ${pct}%</div></div><button class="secondary" onclick="editGoal('${g.id}')">Update</button></div><div style="height:9px;background:#e5e7eb;border-radius:99px;margin-top:9px"><div style="height:100%;width:${pct}%;background:#4f46e5;border-radius:99px"></div></div></div>`}).join("");
+ let total=Number(windfallAmount?.value||10000),a=Number(windfallEmergency?.value||0),b=Number(windfallVacation?.value||0),c=Number(windfallBig?.value||0),sum=a+b+c;windfallResult.innerHTML=`<div class="row"><span>Emergency savings</span><strong>${money(total*a/100)}</strong></div><div class="row"><span>Vacation</span><strong>${money(total*b/100)}</strong></div><div class="row"><span>Big-ticket items</span><strong>${money(total*c/100)}</strong></div><div class="status ${sum===100?"good":"warn"}" style="margin-top:10px">Allocation totals ${sum}%. ${sum===100?"Ready to use.":"Adjust percentages to equal 100%."}</div>`
+}
+function exportData(){let blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="household-financial-command-center.json";a.click()}
+function importData(ev){let f=ev.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{state=migrate(JSON.parse(r.result));save();renderAll()}catch(e){alert("That file could not be imported.")}};r.readAsText(f)}
+function resetData(){if(confirm("Reset to the original household baseline?")){state=clone(BASELINE);save();renderAll()}}
+newDate.value="2026-08-15";recDate.value="2026-08-15";renderAll();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+}
+
+</script>
+</body>
+</html>
