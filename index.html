@@ -178,7 +178,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 
 <script>
-const APP_VERSION=25;
+const APP_VERSION=26;
 const BASELINE={
  appVersion:APP_VERSION,startDate:"2026-08-03",currentBalance:-125.34,incomeName:"Salary",paycheck:3794.09,paySchedule:"semi",floor:300,spotMeLimit:200,includeWindfall:false,includeOptional:true,
  recurring:[
@@ -221,38 +221,12 @@ function migrate(s){
  const regional=(s.recurring||[]).find(x=>x.id==="regional2");
  if(regional) regional.name="Regional Finance";
  s.exceptions=(s.exceptions||[]).filter(x=>!["rentcatch","latefee","regional1"].includes(x.id));
-
- // Privacy + plan migration for existing browser data.
- const payItem=(s.recurring||[]).find(x=>x.id==="pay");
- if(payItem) payItem.name=s.incomeName||"Salary";
- s.incomeName=s.incomeName||"Salary";
-
- // Remove obsolete catch-up obligations from future planning.
- s.recurring=(s.recurring||[]).filter(x=>!["rentcatch","latefee","regional1"].includes(x.id));
-
- // Make the remaining Regional Finance item the only current scheduled payment.
- const regional=(s.recurring||[]).find(x=>x.id==="regional2");
- if(regional) regional.name="Regional Finance";
-
- // Clean old exceptions tied to obsolete items.
- s.exceptions=(s.exceptions||[]).filter(x=>!["rentcatch","latefee","regional1"].includes(x.id));
+ s.exceptions=s.exceptions.filter(x=>x.key!==occurrenceKey("regional2","2026-08-28"));
 
  s.appVersion=APP_VERSION;return s;
 }
 let state=migrate(JSON.parse(localStorage.getItem("balanceForecastState")||"null"));
 
-const requestedRegionalMoveKey=occurrenceKey("regional2","2026-08-28");
-let requestedRegionalMove=state.exceptions.find(x=>x.key===requestedRegionalMoveKey);
-if(!requestedRegionalMove){
- state.exceptions.push({
-  key:requestedRegionalMoveKey,
-  id:"regional2",
-  sourceDate:"2026-08-28",
-  date:"2026-09-01",
-  moveReason:"Moved to first-of-month paycheck",
-  movedAt:"2026-08-03"
- });
-}
 
 save();
 function save(){localStorage.setItem("balanceForecastState",JSON.stringify(state))}
