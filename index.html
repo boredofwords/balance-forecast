@@ -57,6 +57,15 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
  .mobile-install{display:block}
 }
 
+
+.autopay-watch{border:1px solid #bfdbfe;background:#eff6ff;border-radius:14px;padding:14px;margin-top:12px}
+.autopay-item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border-top:1px solid #dbeafe;padding:10px 0}
+.autopay-item:first-child{border-top:0}
+.autopay-status{display:inline-block;font-size:11px;font-weight:800;border-radius:999px;padding:3px 8px}
+.autopay-missing{background:#fee2e2;color:#991b1b}
+.autopay-covered{background:#dcfce7;color:#166534}
+.autopay-ignored{background:#e5e7eb;color:#374151}
+@media(max-width:600px){.autopay-item{grid-template-columns:1fr}.autopay-item .button-row{justify-content:flex-start!important}}
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -135,6 +144,17 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 <div class="card half summary-box"><h2>Paycheck summary</h2><div id="plannerSummary"></div></div>
 <div class="card half"><div class="row"><h2>Suggested allocations</h2><button class="success" onclick="applyPaycheckPlan()">Apply selected plan</button></div><div id="allocationList"></div></div>
 <div class="card full"><h2>Allocation result</h2><div id="allocationResult" class="note">Build a plan to see the projected balance after each selected payment.</div></div>
+<div class="card full">
+  <div class="row">
+    <div>
+      <h2>Autopay Watch</h2>
+      <p class="note">Recurring charges you want the planner to watch for. “Missing from plan” means the charge is not currently represented by a matching forecast bill.</p>
+    </div>
+    <button class="secondary" onclick="addAutopayWatchItem()">+ Add watch item</button>
+  </div>
+  <div id="autopayWatch" class="autopay-watch"></div>
+</div>
+
 <div class="card full">
   <div class="row">
     <div>
@@ -218,7 +238,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 
 <script>
-const APP_VERSION=33;
+const APP_VERSION=35;
 const BASELINE={
  appVersion:APP_VERSION,startDate:"2026-08-03",currentBalance:-125.34,balanceAsOf:"2026-08-03",incomeName:"Salary",paycheck:3794.09,paySchedule:"semi",floor:300,spotMeLimit:200,includeWindfall:false,includeOptional:true,
  recurring:[
@@ -249,6 +269,21 @@ const BASELINE={
  ]
 };
 function clone(x){return JSON.parse(JSON.stringify(x))}
+
+function defaultAutopayWatch(){
+ return [
+  {id:"watch_affirm",name:"Carnivero / Affirm",amount:38.42,date:"2026-08-14",status:"watch",note:"Detected from recurring checking history"},
+  {id:"watch_afterpay",name:"Afterpay",amount:13.54,date:"2026-08-20",status:"watch",note:"Detected from recurring checking history"},
+  {id:"watch_target",name:"Target Circle 360",amount:4.99,date:"2026-08-29",status:"watch",note:"Keep"},
+  {id:"watch_calendar",name:"CalendarBridge",amount:5.00,date:"2026-08-31",status:"watch",note:"Keep"},
+  {id:"watch_peacock",name:"Peacock / Spectrum add-on",amount:6.53,date:"2026-08-17",status:"ignored",note:"Bundled with Spectrum; do not budget separately unless it posts separately"},
+  {id:"watch_daycare",name:"Brightwheel / daycare",amount:618.24,date:"2026-08-15",status:"ignored",note:"Daycare ended"},
+  {id:"watch_apple1",name:"Apple billing 5.40",amount:5.40,date:"2026-08-28",status:"ignored",note:"Verified not expected"},
+  {id:"watch_apple2",name:"Apple billing 9.99",amount:9.99,date:"2026-08-29",status:"ignored",note:"Verified not expected"},
+  {id:"watch_instant",name:"Instant Loan Payment",amount:73.33,date:"2026-08-15",status:"ignored",note:"Already posted this cycle"}
+ ];
+}
+
 function migrate(s){
  s=s||clone(BASELINE); s.oneTime=s.oneTime||[];s.exceptions=s.exceptions||[];s.archived=s.archived||[];s.paused=s.paused||[];s.goals=s.goals||clone(BASELINE.goals);
  if(s.spotMeLimit==null)s.spotMeLimit=200;if(s.floor==null)s.floor=300;if(s.includeOptional==null)s.includeOptional=true;s.balanceAsOf=s.balanceAsOf||s.startDate;
@@ -267,6 +302,7 @@ function migrate(s){
  s.appVersion=APP_VERSION;return s;
 }
 let state=migrate(JSON.parse(localStorage.getItem("balanceForecastState")||"null"));
+state.autopayWatch=state.autopayWatch||defaultAutopayWatch();
 
 
 save();
@@ -298,13 +334,15 @@ function buildForecast(days=365){
  events.sort((a,b)=>a.eventDate.localeCompare(b.eventDate)||(a.direction==="income"?-1:1));let bal=state.currentBalance;
  return events.map(e=>{bal+=e.direction==="income"?e.amount:-e.amount;return {...e,balance:bal}})
 }
-function showPanel(id){document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.panel===id));if(id==="paycheck")buildPaycheckPlan();if(id==="bills")renderBills();if(id==="timeline")renderTimeline();if(id==="goals")renderGoals()}
+function showPanel(id){document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.panel===id));if(id==="paycheck"){buildPaycheckPlan();renderAutopayWatch();}if(id==="bills")renderBills();if(id==="timeline")renderTimeline();if(id==="goals")renderGoals()}
 function renderAll(){renderForecast();renderBills();renderTimeline();renderGoals();initPlannerDefaults()}
 function renderForecast(){
  const events=buildForecast(),range=Number(document.getElementById("rangeSelect")?.value||90),visible=events.filter(e=>(parseDate(e.eventDate)-parseDate(state.balanceAsOf||state.startDate))/864e5<=range),balances=[state.currentBalance,...visible.map(e=>e.balance)],low=Math.min(...balances),lowEvent=visible.find(e=>e.balance===low),nextPay=events.find(e=>e.direction==="income"&&!e.windfall);
  currentBalance.textContent=money(state.currentBalance);nextPaycheck.textContent=nextPay?money(nextPay.amount):"—";nextPayDate.textContent=nextPay?new Date(nextPay.eventDate+"T12:00:00").toLocaleDateString():"";
  lowestBalance.textContent=money(low);lowestBalance.style.color=low<0?"var(--bad)":low<state.floor?"var(--warn)":"var(--good)";lowestDate.textContent=lowEvent?new Date(lowEvent.eventDate+"T12:00:00").toLocaleDateString():"Today";safeExtra.textContent=money(Math.max(0,low-state.floor));
- const hard=-Math.abs(state.spotMeLimit),spot=state.currentBalance>=0?Math.abs(state.spotMeLimit):Math.max(0,Math.abs(state.spotMeLimit)+state.currentBalance);spotMeRemaining.textContent=money(spot);spotMeRemaining.style.color=spot<50?"var(--bad)":spot<100?"var(--warn)":"var(--good)";
+ const hard=-Math.abs(state.spotMeLimit);
+ const projectedLow=Math.min(state.currentBalance,...events.map(e=>e.balance));
+ const spot=projectedLow>=0?Math.abs(state.spotMeLimit):Math.max(0,Math.abs(state.spotMeLimit)+projectedLow);spotMeRemaining.textContent=money(spot);spotMeRemaining.style.color=spot<50?"var(--bad)":spot<100?"var(--warn)":"var(--good)";
  statusBox.innerHTML=low<hard?`<div class="status bad"><strong>SpotMe limit exceeded:</strong> forecast reaches ${money(low)}.</div>`:low<0?`<div class="status warn"><strong>SpotMe would be used:</strong> forecast reaches ${money(low)}; ${money(low-hard)} remains before the hard limit.</div>`:low<state.floor?`<div class="status warn"><strong>Tight forecast:</strong> lowest balance ${money(low)} is below your ${money(state.floor)} floor.</div>`:`<div class="status good"><strong>Forecast stays above your floor.</strong> Lowest projected balance ${money(low)}.</div>`;
  ledgerBody.innerHTML=visible.map(e=>`<tr class="${e.balance<0?"negative":e.balance<state.floor?"low":""}"><td>${new Date(e.eventDate+"T12:00:00").toLocaleDateString()}</td><td>${e.name}${e.eventDate!==e.sourceDate?`<div class="note">Moved from ${new Date(e.sourceDate+"T12:00:00").toLocaleDateString()}${getException(e.id,e.sourceDate)?.moveReason?` · ${getException(e.id,e.sourceDate).moveReason}`:""}</div>`:""}</td><td><span class="pill ${e.windfall?"windfall":e.direction}">${e.windfall?"windfall":e.direction}</span></td><td class="amount">${e.direction==="income"?"+":"−"}${money(e.amount)}</td><td class="amount"><strong>${money(e.balance)}</strong></td><td class="compact">${e.direction==="income"
 ?`<button class="success" onclick="receiveIncome('${e.id}','${e.sourceDate}')">💰 Received</button>`
@@ -469,7 +507,7 @@ function buildPaycheckPlan(){
  plannerItems=events.sort((a,b)=>priorityRank(a.priority)-priorityRank(b.priority)||a.eventDate.localeCompare(b.eventDate)).map((e,i)=>({...e,selected:e.priority!=="flexible",planAmount:e.amount,planId:"p"+i}));
  plannerSummary.innerHTML=`<div><strong>Starting balance:</strong> ${money(state.currentBalance)}</div><div><strong>Expected deposit:</strong> ${money(deposit)}</div><div><strong>Available after deposit:</strong> ${money(state.currentBalance+deposit)}</div><div><strong>Protected floor:</strong> ${money(floor)}</div>`;
  allocationList.innerHTML=plannerItems.map(x=>`<div class="allocation-row"><input type="checkbox" ${x.selected?"checked":""} onchange="updatePlanItem('${x.planId}',this.checked,null)"><div><strong>${x.name}</strong><div class="note">Due ${x.eventDate}</div></div><input type="number" step=".01" value="${x.planAmount}" oninput="updatePlanItem('${x.planId}',null,this.value)"><span class="pill ${x.priority} priority">${x.priority}</span></div>`).join("");
- renderAllocationResult();buildRescuePlan()
+ renderAllocationResult();buildRescuePlan();renderAutopayWatch()
 }
 function updatePlanItem(id,selected,amount){let x=plannerItems.find(x=>x.planId===id);if(selected!==null)x.selected=selected;if(amount!==null&&!isNaN(Number(amount)))x.planAmount=Math.abs(Number(amount));renderAllocationResult();buildRescuePlan()}
 function renderAllocationResult(){let bal=state.currentBalance+(Number(plannerDeposit.value)||0),rows=[];plannerItems.filter(x=>x.selected).forEach(x=>{bal-=x.planAmount;rows.push(`<div class="row"><span>${x.name}</span><span>${money(x.planAmount)} → <strong>${money(bal)}</strong></span></div>`)});let floor=Number(plannerFloor.value)||0,hard=-Math.abs(state.spotMeLimit);allocationResult.innerHTML=rows.join("")+`<hr><div class="row"><strong>Remaining after selected payments</strong><strong>${money(bal)}</strong></div><div class="status ${bal<hard?"bad":bal<floor?"warn":"good"}" style="margin-top:10px">${bal<hard?"Plan exceeds SpotMe limit.":bal<0?"Plan uses SpotMe.":bal<floor?"Plan falls below your preferred floor.":"Plan stays above your preferred floor."}</div>`}
@@ -485,6 +523,65 @@ function rescueScore(e){
  const categoryPenalty=["Housing","Insurance"].includes(e.category)?4:["Transportation"].includes(e.category)?2:0;
  return p+categoryPenalty;
 }
+
+function normalizeWatchText(s){return String(s||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()}
+function watchCovered(item){
+ const active=[...(state.recurring||[]),...(state.oneTime||[])].filter(x=>x.direction==="expense"&&!x.archived&&!x.paused);
+ const words=normalizeWatchText(item.name).split(" ").filter(x=>x.length>3);
+ return active.some(x=>{
+  const xn=normalizeWatchText(x.name);
+  const nameHit=words.some(w=>xn.includes(w));
+  const amountHit=Math.abs(Number(x.amount||0)-Number(item.amount||0))<0.01;
+  return nameHit||amountHit;
+ });
+}
+function renderAutopayWatch(){
+ const el=document.getElementById("autopayWatch"); if(!el)return;
+ const items=(state.autopayWatch||[]).slice().sort((a,b)=>(a.date||"9999").localeCompare(b.date||"9999"));
+ if(!items.length){el.innerHTML='<div class="note">No watch items yet.</div>';return}
+ el.innerHTML=items.map(item=>{
+  const covered=watchCovered(item);
+  const status=item.status==="ignored"?"ignored":covered?"covered":"missing";
+  const label=status==="ignored"?"Ignored":status==="covered"?"Covered in plan":"Missing from plan";
+  const cls=status==="ignored"?"autopay-ignored":status==="covered"?"autopay-covered":"autopay-missing";
+  return `<div class="autopay-item">
+   <div>
+    <div><strong>${item.name}</strong> <span class="autopay-status ${cls}">${label}</span></div>
+    <div class="note">${item.date?new Date(item.date+"T12:00:00").toLocaleDateString():"No date"} · ${money(item.amount||0)}${item.note?` · ${item.note}`:""}</div>
+   </div>
+   <div class="button-row" style="justify-content:flex-end">
+    ${status==="missing"?`<button class="primary" onclick="addWatchToPlan('${item.id}')">Add to plan</button>`:""}
+    <button class="secondary" onclick="editAutopayWatchItem('${item.id}')">Edit</button>
+    <button class="secondary" onclick="toggleIgnoreAutopay('${item.id}')">${item.status==="ignored"?"Watch":"Ignore"}</button>
+   </div>
+  </div>`;
+ }).join("");
+}
+function addWatchToPlan(id){
+ const item=(state.autopayWatch||[]).find(x=>x.id===id); if(!item)return;
+ state.oneTime.push({id:"watchplan_"+Date.now(),name:item.name,amount:Number(item.amount)||0,direction:"expense",date:item.date||state.balanceAsOf||state.startDate,category:"Autopay",optional:false,priority:"medium"});
+ save();renderAll();buildPaycheckPlan();renderAutopayWatch();
+}
+function toggleIgnoreAutopay(id){
+ const item=(state.autopayWatch||[]).find(x=>x.id===id); if(!item)return;
+ item.status=item.status==="ignored"?"watch":"ignored";save();renderAutopayWatch();
+}
+function editAutopayWatchItem(id){
+ const item=(state.autopayWatch||[]).find(x=>x.id===id); if(!item)return;
+ const name=prompt("Charge name:",item.name); if(name===null)return;
+ const amount=prompt("Expected amount:",item.amount); if(amount===null)return;
+ const date=prompt("Expected date (YYYY-MM-DD):",item.date||""); if(date===null)return;
+ const note=prompt("Note:",item.note||""); if(note===null)return;
+ item.name=name.trim()||item.name;item.amount=Number(amount)||0;item.date=date.trim();item.note=note.trim();save();renderAutopayWatch();
+}
+function addAutopayWatchItem(){
+ const name=prompt("Recurring charge name:"); if(!name)return;
+ const amount=prompt("Expected amount:","0"); if(amount===null)return;
+ const date=prompt("Expected date (YYYY-MM-DD):",state.balanceAsOf||state.startDate); if(date===null)return;
+ (state.autopayWatch||(state.autopayWatch=[])).push({id:"watch_"+Date.now(),name:name.trim(),amount:Number(amount)||0,date:date.trim(),status:"watch",note:"Manual watch item"});
+ save();renderAutopayWatch();
+}
+
 function buildRescuePlan(){
  const pd=plannerDate.value||state.balanceAsOf||state.startDate;
  const nd=plannerNextDate.value||nextPayDateAfter(pd);
@@ -571,7 +668,8 @@ function resetCleanTemplate(){
    exceptions:[],
    archived:[],
    paused:[],
-   goals:[]
+   goals:[],
+   autopayWatch:[]
  };
  save();
  renderAll();
