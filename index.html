@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Household Financial Command Center</title>
+<title>Family Cash Flow Forcaster</title>
 <style>
 :root{--bg:#f5f7fb;--card:#fff;--ink:#172033;--muted:#6b7280;--line:#e5e7eb;--good:#0f766e;--warn:#b45309;--bad:#b91c1c;--accent:#4f46e5;--accent2:#eef2ff}
 *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -72,13 +72,13 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 <meta name="theme-color" content="#111827">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Balance Forecast">
+<meta name="apple-mobile-web-app-title" content="Family Cash Flow Forcaster">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 
 </head>
 <body>
 <header>
-<div><h1>Household Financial Command Center</h1><p>Cash-flow forecasting, paycheck planning, bill actions, timeline, and goals.</p></div>
+<div><h1>Family Cash Flow Forcaster</h1><p>Cash-flow forecasting, paycheck planning, bill actions, timeline, and goals.</p></div>
 <div class="actions"><button class="secondary" onclick="exportData()">Export</button><label class="btn secondary">Import<input id="importFile" class="hidden" type="file" accept=".json" onchange="importData(event)"></label></div>
 </header>
 <main>
@@ -252,7 +252,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 
 <script>
-const APP_VERSION=44;
+const APP_VERSION=45;
 const BASELINE={
  appVersion:APP_VERSION,startDate:"2026-08-03",currentBalance:3404,savingsBalance:1447,balanceAsOf:"2026-08-28",incomeName:"Salary",paycheck:3794.09,paySchedule:"semi",floor:300,spotMeLimit:200,includeWindfall:false,includeOptional:true,
  recurring:[
@@ -281,7 +281,7 @@ const BASELINE={
  oneTime:[
  {id:"seattle_airfare_aug28",name:"Seattle trip — Delta airfare (3 passengers)",amount:1415.40,direction:"expense",date:"2026-08-28",frequency:"one",category:"Travel",optional:false,priority:"critical"},
  {id:"seattle_lodging_sep15",name:"Seattle trip — Artful Cozy Casa (charged Sep 15)",amount:879.12,direction:"expense",date:"2026-09-15",frequency:"one",category:"Travel",optional:false,priority:"critical"},
- {id:"seattle_turo_sep28",name:"VERIFY CHARGE DATE — Ivar Turo VW ID.4",amount:258,direction:"expense",date:"2026-09-28",frequency:"one",category:"Travel",optional:false,priority:"high"},
+ {id:"seattle_turo_sep28",name:"Ivar Turo VW ID.4 — charged Sep 21",amount:285.31,direction:"expense",date:"2026-09-21",frequency:"one",category:"Travel",optional:false,priority:"high"},
  {id:"seattle_food_sep30",name:"Seattle trip — food from existing grocery reserve",amount:350,direction:"expense",date:"2026-09-30",frequency:"one",category:"Food",optional:false,priority:"critical"},
  {id:"seattle_transport_sep30",name:"Seattle trip — charging, parking & local transport from existing reserve",amount:125,direction:"expense",date:"2026-09-30",frequency:"one",category:"Transportation",optional:false,priority:"critical"},
  {id:"seattle_activities_sep28",name:"ESTIMATE — Seattle activities & admissions",amount:250,direction:"expense",date:"2026-09-28",frequency:"one",category:"Travel",optional:false,priority:"high"},
@@ -435,7 +435,7 @@ function migrate(s){
   const tripItems=[
    {id:"seattle_airfare_aug28",name:"Seattle trip — Delta airfare (3 passengers)",amount:1415.40,direction:"expense",date:"2026-08-28",frequency:"one",category:"Travel",optional:false,priority:"critical"},
    {id:"seattle_lodging_sep15",name:"Seattle trip — Artful Cozy Casa (charged Sep 15)",amount:879.12,direction:"expense",date:"2026-09-15",frequency:"one",category:"Travel",optional:false,priority:"critical"},
-   {id:"seattle_turo_sep28",name:"VERIFY CHARGE DATE — Ivar Turo VW ID.4",amount:258,direction:"expense",date:"2026-09-28",frequency:"one",category:"Travel",optional:false,priority:"high"},
+   {id:"seattle_turo_sep28",name:"Ivar Turo VW ID.4 — charged Sep 21",amount:285.31,direction:"expense",date:"2026-09-21",frequency:"one",category:"Travel",optional:false,priority:"high"},
    {id:"seattle_food_sep30",name:"Seattle trip — food from existing grocery reserve",amount:350,direction:"expense",date:"2026-09-30",frequency:"one",category:"Food",optional:false,priority:"critical"},
    {id:"seattle_transport_sep30",name:"Seattle trip — charging, parking & local transport from existing reserve",amount:125,direction:"expense",date:"2026-09-30",frequency:"one",category:"Transportation",optional:false,priority:"critical"}
   ];
@@ -453,6 +453,11 @@ function migrate(s){
    {id:"seattle_contingency_sep28",name:"Seattle trip — contingency reserve",amount:300,direction:"expense",date:"2026-09-28",frequency:"one",category:"Travel",optional:false,priority:"high"}
   ];
   tripSafetyItems.forEach(item=>{const existing=(s.oneTime||[]).find(x=>x.id===item.id);if(existing)Object.assign(existing,item);else s.oneTime.push(item)});
+ }
+
+ if(previousVersion<45){
+  const turo=(s.oneTime||[]).find(x=>x.id==="seattle_turo_sep28");
+  if(turo)Object.assign(turo,{name:"Ivar Turo VW ID.4 — charged Sep 21",amount:285.31,date:"2026-09-21",category:"Travel",optional:false,priority:"high"});
  }
 
  s.appVersion=APP_VERSION;return s;
@@ -782,7 +787,7 @@ function renderTripBudget(){
  const tripItems=(state.oneTime||[]).filter(x=>x.id.startsWith("seattle_"));
  const bookedIds=new Set(["seattle_airfare_aug28","seattle_lodging_sep15","seattle_turo_sep28"]);
  const existingReserveIds=new Set(["seattle_food_sep30","seattle_transport_sep30"]);
- const estimates=new Set(["seattle_turo_sep28","seattle_activities_sep28","seattle_aus_logistics_sep28"]);
+ const estimates=new Set(["seattle_activities_sep28","seattle_aus_logistics_sep28"]);
  const total=tripItems.reduce((sum,x)=>sum+Number(x.amount||0),0);
  const booked=tripItems.filter(x=>bookedIds.has(x.id)).reduce((sum,x)=>sum+Number(x.amount||0),0);
  const reused=tripItems.filter(x=>existingReserveIds.has(x.id)).reduce((sum,x)=>sum+Number(x.amount||0),0);
