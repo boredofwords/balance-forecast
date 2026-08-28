@@ -87,6 +87,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 <button class="tab" data-panel="paycheck" onclick="showPanel('paycheck')">Paycheck Planner</button>
 <button class="tab" data-panel="bills" onclick="showPanel('bills')">Bills</button>
 <button class="tab" data-panel="timeline" onclick="showPanel('timeline')">Timeline</button>
+<button class="tab" data-panel="trip" onclick="showPanel('trip')">Seattle Trip</button>
 <button class="tab" data-panel="goals" onclick="showPanel('goals')">Goals</button>
 <button class="tab" data-panel="settings" onclick="showPanel('settings')">Settings</button>
 </div>
@@ -179,6 +180,18 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 <section id="timeline" class="panel"><div class="card"><div class="row"><div><h2>Timeline</h2><p class="note">Your most practical view: the reconciled balance, then every projected deposit and payment in order.</p></div><select id="timelineRange" style="width:auto" onchange="renderTimeline()"><option value="30">30 days</option><option value="60">60 days</option><option value="90" selected>90 days</option></select></div><div id="timelineList"></div></div></section>
 
+<section id="trip" class="panel">
+<div class="grid">
+<div class="card full"><div class="row"><div><h2>Seattle family trip · Sep 28–Oct 2</h2><p class="note">Proposed plan only. Food and local transportation replace normal household reserves for this period; they are not counted twice.</p></div><span class="pill expense">NOT BOOKED</span></div></div>
+<div class="card metric"><div class="label">Confirmed-price bookings</div><div class="value" id="tripBookedTotal"></div><div class="sub">Flights + lodging + Ivar</div></div>
+<div class="card metric"><div class="label">Full conservative plan</div><div class="value" id="tripPlanTotal"></div><div class="sub">Includes food, activities, logistics and contingency</div></div>
+<div class="card metric"><div class="label">Incremental trip cost</div><div class="value" id="tripIncremental"></div><div class="sub">After subtracting existing food/transport reserves</div></div>
+<div class="card metric"><div class="label">Savings support needed</div><div class="value" id="tripSavingsNeeded"></div><div class="sub">To preserve the preferred checking floor</div></div>
+<div class="card wide"><h2>Trip payment timeline</h2><div style="overflow:auto"><table><thead><tr><th>Date</th><th>Item</th><th>Status</th><th class="amount">Amount</th></tr></thead><tbody id="tripBudgetBody"></tbody></table></div></div>
+<div class="card"><h2>Planning assumptions</h2><div id="tripAssumptions" class="note"></div></div>
+</div>
+</section>
+
 <section id="goals" class="panel"><div class="grid"><div class="card full"><div class="row"><div><h2>Goals</h2><p class="note">Quarterly bonus and stock proceeds stay separate from ordinary bills and can be assigned here.</p></div><button class="primary" onclick="addGoal()">Add goal</button></div><div id="goalList"></div></div><div class="card full"><h2>Quarterly windfall planner</h2><div class="settingsgrid"><div><label>Expected windfall</label><input id="windfallAmount" type="number" value="10000" oninput="renderGoals()"></div><div><label>Emergency savings %</label><input id="windfallEmergency" type="number" value="40" oninput="renderGoals()"></div><div><label>Vacation %</label><input id="windfallVacation" type="number" value="20" oninput="renderGoals()"></div><div><label>Big-ticket items %</label><input id="windfallBig" type="number" value="40" oninput="renderGoals()"></div></div><div id="windfallResult" style="margin-top:12px"></div></div></div></section>
 
 <section id="settings" class="panel"><div class="grid"><div class="card full"><h2>Core settings</h2><div class="settingsgrid"><div><label>Current checking balance</label><input id="settingBalance" type="number" step=".01" onchange="saveSettings()"></div><div><label>Current savings balance</label><input id="settingSavings" type="number" step=".01" onchange="saveSettings()"></div><div><label>Income name</label><input id="settingIncomeName" type="text" onchange="saveSettings()"></div><div><label>Regular paycheck</label><input id="settingPaycheck" type="number" step=".01" onchange="saveSettings()"></div><div><label>Pay schedule</label><select id="settingPaySchedule" onchange="saveSettings()"><option value="semi">15th & month-end</option><option value="biweekly">Every 2 weeks</option></select></div><div><label>Balance as-of date</label><input id="settingBalanceAsOf" type="date" onchange="saveSettings()"></div><div><label>Original plan start</label><input id="settingStart" type="date" onchange="saveSettings()"></div></div><p class="note">Everything is stored in this browser. Export a backup before clearing browser data or moving devices.</p></div></div>
@@ -239,9 +252,9 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 
 <script>
-const APP_VERSION=41;
+const APP_VERSION=44;
 const BASELINE={
- appVersion:APP_VERSION,startDate:"2026-08-03",currentBalance:6231,savingsBalance:1447,balanceAsOf:"2026-08-28",incomeName:"Salary",paycheck:3794.09,paySchedule:"semi",floor:300,spotMeLimit:200,includeWindfall:false,includeOptional:true,
+ appVersion:APP_VERSION,startDate:"2026-08-03",currentBalance:3404,savingsBalance:1447,balanceAsOf:"2026-08-28",incomeName:"Salary",paycheck:3794.09,paySchedule:"semi",floor:300,spotMeLimit:200,includeWindfall:false,includeOptional:true,
  recurring:[
  {id:"pay",name:"Salary",amount:3794.09,direction:"income",date:"2026-08-15",frequency:"semimonthly",category:"Income",optional:false,priority:"critical"},
  {id:"bridgecrest",name:"Bridgecrest car payment",amount:779,direction:"expense",date:"2026-08-28",frequency:"monthly",category:"Transportation",optional:false,priority:"critical"},
@@ -266,12 +279,20 @@ const BASELINE={
  {id:"windfall",name:"Quarterly bonus + stock bucket",amount:10000,direction:"income",date:"2026-08-28",frequency:"quarterly",category:"Windfall",optional:false,windfall:true,priority:"flexible"}
  ],
  oneTime:[
+ {id:"seattle_airfare_aug28",name:"Seattle trip — Delta airfare (3 passengers)",amount:1415.40,direction:"expense",date:"2026-08-28",frequency:"one",category:"Travel",optional:false,priority:"critical"},
+ {id:"seattle_lodging_sep15",name:"Seattle trip — Artful Cozy Casa (charged Sep 15)",amount:879.12,direction:"expense",date:"2026-09-15",frequency:"one",category:"Travel",optional:false,priority:"critical"},
+ {id:"seattle_turo_sep28",name:"VERIFY CHARGE DATE — Ivar Turo VW ID.4",amount:258,direction:"expense",date:"2026-09-28",frequency:"one",category:"Travel",optional:false,priority:"high"},
+ {id:"seattle_food_sep30",name:"Seattle trip — food from existing grocery reserve",amount:350,direction:"expense",date:"2026-09-30",frequency:"one",category:"Food",optional:false,priority:"critical"},
+ {id:"seattle_transport_sep30",name:"Seattle trip — charging, parking & local transport from existing reserve",amount:125,direction:"expense",date:"2026-09-30",frequency:"one",category:"Transportation",optional:false,priority:"critical"},
+ {id:"seattle_activities_sep28",name:"ESTIMATE — Seattle activities & admissions",amount:250,direction:"expense",date:"2026-09-28",frequency:"one",category:"Travel",optional:false,priority:"high"},
+ {id:"seattle_aus_logistics_sep28",name:"ESTIMATE — AUS airport parking or rideshare",amount:100,direction:"expense",date:"2026-09-28",frequency:"one",category:"Travel",optional:false,priority:"high"},
+ {id:"seattle_contingency_sep28",name:"Seattle trip — contingency reserve",amount:300,direction:"expense",date:"2026-09-28",frequency:"one",category:"Travel",optional:false,priority:"high"},
  {id:"tilt_aug31",name:"Tilt repayment",amount:106,direction:"expense",date:"2026-08-31",frequency:"one",category:"Debt",optional:false,priority:"critical"},
  {id:"dave_aug31",name:"Dave settlement",amount:136.88,direction:"expense",date:"2026-08-28",frequency:"one",category:"Debt",optional:false,priority:"critical"},
  {id:"brigit_aug31",name:"Brigit repayment",amount:53,direction:"expense",date:"2026-08-31",frequency:"one",category:"Debt",optional:false,priority:"critical"},
  {id:"verizon_due_aug",name:"Verizon — current amount due",amount:362,direction:"expense",date:"2026-08-28",frequency:"one",category:"Bills",optional:false,priority:"critical"},
  {id:"electric_aug",name:"Electricity — amount due (estimated)",amount:600,direction:"expense",date:"2026-08-29",frequency:"one",category:"Bills",optional:false,priority:"critical"}
- ],exceptions:[{key:"pay@2026-08-15",id:"pay",sourceDate:"2026-08-15",status:"received",receivedAt:"2026-08-15"},{key:"pay@2026-08-31",id:"pay",sourceDate:"2026-08-31",status:"received",receivedAt:"2026-08-28"},{key:"bridgecrest@2026-08-28",id:"bridgecrest",sourceDate:"2026-08-28",status:"paid",paidAt:"2026-08-28",balanceAdjusted:false},{key:"regional2@2026-08-28",id:"regional2",sourceDate:"2026-08-28",status:"paid",paidAt:"2026-08-28",balanceAdjusted:false}],archived:[],paused:[],goals:[
+ ],exceptions:[{key:"pay@2026-08-15",id:"pay",sourceDate:"2026-08-15",status:"received",receivedAt:"2026-08-15"},{key:"pay@2026-08-31",id:"pay",sourceDate:"2026-08-31",status:"received",receivedAt:"2026-08-28"},{key:"bridgecrest@2026-08-28",id:"bridgecrest",sourceDate:"2026-08-28",status:"paid",paidAt:"2026-08-28",balanceAdjusted:false},{key:"regional2@2026-08-28",id:"regional2",sourceDate:"2026-08-28",status:"paid",paidAt:"2026-08-28",balanceAdjusted:false},{key:"rent@2026-09-01",id:"rent",sourceDate:"2026-09-01",status:"paid",paidAt:"2026-08-28",balanceAdjusted:false,amount:2435},{key:"groceries@2026-09-30",id:"groceries",sourceDate:"2026-09-30",status:"skipped"},{key:"gas@2026-09-30",id:"gas",sourceDate:"2026-09-30",status:"skipped"}],archived:[],paused:[],goals:[
  {id:"emergency",name:"Emergency fund",target:3000,saved:0},
  {id:"vacation",name:"Vacation",target:3000,saved:0},
  {id:"bigitems",name:"Big-ticket household needs",target:5000,saved:0}
@@ -402,6 +423,38 @@ function migrate(s){
   s.exceptions=(s.exceptions||[]).filter(x=>x.id!=="mypay_aug31");
  }
 
+ if(previousVersion<42){
+  s.currentBalance=3404;
+  s.balanceAsOf="2026-08-28";
+  const rentKey=occurrenceKey("rent","2026-09-01"),rentPayment=s.exceptions.find(x=>x.key===rentKey);
+  if(rentPayment)Object.assign(rentPayment,{status:"paid",paidAt:"2026-08-28",balanceAdjusted:false,amount:2435});
+  else s.exceptions.push({key:rentKey,id:"rent",sourceDate:"2026-09-01",status:"paid",paidAt:"2026-08-28",balanceAdjusted:false,amount:2435});
+ }
+
+ if(previousVersion<43){
+  const tripItems=[
+   {id:"seattle_airfare_aug28",name:"Seattle trip — Delta airfare (3 passengers)",amount:1415.40,direction:"expense",date:"2026-08-28",frequency:"one",category:"Travel",optional:false,priority:"critical"},
+   {id:"seattle_lodging_sep15",name:"Seattle trip — Artful Cozy Casa (charged Sep 15)",amount:879.12,direction:"expense",date:"2026-09-15",frequency:"one",category:"Travel",optional:false,priority:"critical"},
+   {id:"seattle_turo_sep28",name:"VERIFY CHARGE DATE — Ivar Turo VW ID.4",amount:258,direction:"expense",date:"2026-09-28",frequency:"one",category:"Travel",optional:false,priority:"high"},
+   {id:"seattle_food_sep30",name:"Seattle trip — food from existing grocery reserve",amount:350,direction:"expense",date:"2026-09-30",frequency:"one",category:"Food",optional:false,priority:"critical"},
+   {id:"seattle_transport_sep30",name:"Seattle trip — charging, parking & local transport from existing reserve",amount:125,direction:"expense",date:"2026-09-30",frequency:"one",category:"Transportation",optional:false,priority:"critical"}
+  ];
+  tripItems.forEach(item=>{const existing=(s.oneTime||[]).find(x=>x.id===item.id);if(existing)Object.assign(existing,item);else s.oneTime.push(item)});
+  [{id:"groceries",date:"2026-09-30"},{id:"gas",date:"2026-09-30"}].forEach(p=>{
+   const key=occurrenceKey(p.id,p.date),existing=s.exceptions.find(x=>x.key===key);
+   if(existing)Object.assign(existing,{status:"skipped"});else s.exceptions.push({key,id:p.id,sourceDate:p.date,status:"skipped"});
+  });
+ }
+
+ if(previousVersion<44){
+  const tripSafetyItems=[
+   {id:"seattle_activities_sep28",name:"ESTIMATE — Seattle activities & admissions",amount:250,direction:"expense",date:"2026-09-28",frequency:"one",category:"Travel",optional:false,priority:"high"},
+   {id:"seattle_aus_logistics_sep28",name:"ESTIMATE — AUS airport parking or rideshare",amount:100,direction:"expense",date:"2026-09-28",frequency:"one",category:"Travel",optional:false,priority:"high"},
+   {id:"seattle_contingency_sep28",name:"Seattle trip — contingency reserve",amount:300,direction:"expense",date:"2026-09-28",frequency:"one",category:"Travel",optional:false,priority:"high"}
+  ];
+  tripSafetyItems.forEach(item=>{const existing=(s.oneTime||[]).find(x=>x.id===item.id);if(existing)Object.assign(existing,item);else s.oneTime.push(item)});
+ }
+
  s.appVersion=APP_VERSION;return s;
 }
 let state=migrate(JSON.parse(localStorage.getItem("balanceForecastState")||"null"));
@@ -437,8 +490,8 @@ function buildForecast(days=365){
  events.sort((a,b)=>a.eventDate.localeCompare(b.eventDate)||(a.direction==="income"?-1:1));let bal=state.currentBalance;
  return events.map(e=>{bal+=e.direction==="income"?e.amount:-e.amount;return {...e,balance:bal}})
 }
-function showPanel(id){document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.panel===id));if(id==="paycheck"){buildPaycheckPlan();renderAutopayWatch();}if(id==="bills")renderBills();if(id==="timeline")renderTimeline();if(id==="goals")renderGoals()}
-function renderAll(){renderForecast();renderBills();renderTimeline();renderGoals();initPlannerDefaults()}
+function showPanel(id){document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.panel===id));if(id==="paycheck"){buildPaycheckPlan();renderAutopayWatch();}if(id==="bills")renderBills();if(id==="timeline")renderTimeline();if(id==="trip")renderTripBudget();if(id==="goals")renderGoals()}
+function renderAll(){renderForecast();renderBills();renderTimeline();renderTripBudget();renderGoals();initPlannerDefaults()}
 function renderForecast(){
  const events=buildForecast(),range=Number(document.getElementById("rangeSelect")?.value||90),visible=events.filter(e=>(parseDate(e.eventDate)-parseDate(state.balanceAsOf||state.startDate))/864e5<=range),balances=[state.currentBalance,...visible.map(e=>e.balance)],low=Math.min(...balances),lowEvent=visible.find(e=>e.balance===low),nextPay=events.find(e=>e.direction==="income"&&!e.windfall);
  currentBalance.textContent=money(state.currentBalance);savingsBalance.textContent=money(state.savingsBalance);nextPaycheck.textContent=nextPay?money(nextPay.amount):"—";nextPayDate.textContent=nextPay?new Date(nextPay.eventDate+"T12:00:00").toLocaleDateString():"";
@@ -725,6 +778,33 @@ function buildRescuePlan(){
 function applyPaycheckPlan(){if(!plannerItems.length)return;let selected=plannerItems.filter(x=>x.selected);if(!confirm(`Apply ${selected.length} planned allocations to the forecast? This changes occurrence amounts but does not mark them paid.`))return;selected.forEach(x=>setException(x.id,x.sourceDate,{amount:x.planAmount}));showPanel("forecast")}
 function renderTimeline(){let days=Number(timelineRange?.value||90),events=buildForecast(days);timelineList.innerHTML=`<div class="timeline-item"><div class="timeline-date">${new Date((state.balanceAsOf||state.startDate)+"T12:00:00").toLocaleDateString()}</div><div>Reconciled checking balance</div><div class="timeline-balance">${money(state.currentBalance)}</div></div>`+events.map(e=>`<div class="timeline-item ${e.balance<0?"negative":""}"><div class="timeline-date">${new Date(e.eventDate+"T12:00:00").toLocaleDateString()}</div><div><strong>${e.name}</strong><div class="note">${e.direction==="income"?"Deposit":"Payment"} ${money(e.amount)}</div></div><div class="timeline-balance">${money(e.balance)}</div></div>`).join("")}
 function addGoal(){let name=prompt("Goal name:");if(!name)return;let target=Number(prompt("Target amount:","1000"));if(!target)return;state.goals.push({id:"g"+Date.now(),name,target,saved:0});save();renderGoals()}
+function renderTripBudget(){
+ const tripItems=(state.oneTime||[]).filter(x=>x.id.startsWith("seattle_"));
+ const bookedIds=new Set(["seattle_airfare_aug28","seattle_lodging_sep15","seattle_turo_sep28"]);
+ const existingReserveIds=new Set(["seattle_food_sep30","seattle_transport_sep30"]);
+ const estimates=new Set(["seattle_turo_sep28","seattle_activities_sep28","seattle_aus_logistics_sep28"]);
+ const total=tripItems.reduce((sum,x)=>sum+Number(x.amount||0),0);
+ const booked=tripItems.filter(x=>bookedIds.has(x.id)).reduce((sum,x)=>sum+Number(x.amount||0),0);
+ const reused=tripItems.filter(x=>existingReserveIds.has(x.id)).reduce((sum,x)=>sum+Number(x.amount||0),0);
+ const forecast=buildForecast(90),low=Math.min(state.currentBalance,...forecast.map(x=>x.balance));
+ const needed=Math.max(0,(Number(state.floor)||0)-low);
+ tripBookedTotal.textContent=money(booked);
+ tripPlanTotal.textContent=money(total);
+ tripIncremental.textContent=money(total-reused);
+ tripSavingsNeeded.textContent=money(needed);
+ tripSavingsNeeded.style.color=needed>Number(state.savingsBalance||0)?"var(--bad)":needed>0?"var(--warn)":"var(--good)";
+ tripBudgetBody.innerHTML=tripItems.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(x=>{
+  const ex=getException(x.id,x.date),done=ex?.status==="paid",label=done?"Paid":estimates.has(x.id)?"Verify / estimate":existingReserveIds.has(x.id)?"Existing budget":"Confirmed price";
+  return `<tr><td>${new Date(x.date+"T12:00:00").toLocaleDateString()}</td><td>${x.name}</td><td><span class="pill ${done?"income":estimates.has(x.id)?"windfall":"expense"}">${label}</span></td><td class="amount"><strong>${money(x.amount)}</strong></td></tr>`
+ }).join("");
+ tripAssumptions.innerHTML=`
+  <div>• Cozy Casa uses the no-fee September 15 pay-later option.</div>
+  <div>• Ivar is placed on September 28 until Turo's actual charge date is confirmed.</div>
+  <div>• ${money(reused)} of food and transportation replaces normal September 30 household reserves.</div>
+  <div>• Activities (${money(250)}), Austin airport logistics (${money(100)}), and contingency (${money(300)}) are conservative placeholders.</div>
+  <div>• Baggage, stroller and car-seat fees are budgeted at $0. Seat upgrades and trip protection are excluded.</div>
+  <div>• The contingency is modeled as fully spent; any unused amount improves the actual result.</div>`;
+}
 function editGoal(id){let g=state.goals.find(x=>x.id===id);let saved=prompt("Current saved amount:",g.saved);if(saved!==null&&!isNaN(Number(saved))){g.saved=Math.max(0,Number(saved));save();renderGoals()}}
 function renderGoals(){goalList.innerHTML=state.goals.map(g=>{let pct=Math.min(100,Math.round(g.saved/g.target*100)||0);return `<div class="goal-card"><div class="row"><div><strong>${g.name}</strong><div class="note">${money(g.saved)} of ${money(g.target)} · ${pct}%</div></div><button class="secondary" onclick="editGoal('${g.id}')">Update</button></div><div style="height:9px;background:#e5e7eb;border-radius:99px;margin-top:9px"><div style="height:100%;width:${pct}%;background:#4f46e5;border-radius:99px"></div></div></div>`}).join("");
  let total=Number(windfallAmount?.value||10000),a=Number(windfallEmergency?.value||0),b=Number(windfallVacation?.value||0),c=Number(windfallBig?.value||0),sum=a+b+c;windfallResult.innerHTML=`<div class="row"><span>Emergency savings</span><strong>${money(total*a/100)}</strong></div><div class="row"><span>Vacation</span><strong>${money(total*b/100)}</strong></div><div class="row"><span>Big-ticket items</span><strong>${money(total*c/100)}</strong></div><div class="status ${sum===100?"good":"warn"}" style="margin-top:10px">Allocation totals ${sum}%. ${sum===100?"Ready to use.":"Adjust percentages to equal 100%."}</div>`
