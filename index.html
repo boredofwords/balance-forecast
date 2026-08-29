@@ -751,6 +751,64 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   background:#f8fafc;
 }
 
+
+/* FIX 44.37: recurring editor */
+.bill-name-edit{
+  display:inline-block;
+  border:0 !important;
+  background:transparent !important;
+  padding:0 !important;
+  margin:0 0 4px !important;
+  min-height:0 !important;
+  color:var(--ink) !important;
+  font:inherit !important;
+  font-weight:800 !important;
+  text-align:left !important;
+  cursor:pointer;
+}
+.bill-name-edit:hover{text-decoration:underline}
+.recurring-edit-card{width:min(680px,100%)}
+.recurring-edit-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin-top:16px;
+}
+.recurring-edit-grid .span-2{grid-column:1/-1}
+.recurring-edit-grid label{display:block;margin-bottom:5px}
+.recurring-edit-grid input,
+.recurring-edit-grid select{width:100%;box-sizing:border-box}
+.recurring-check-row{
+  display:flex;
+  align-items:end;
+}
+.recurring-check-row label{
+  display:flex !important;
+  align-items:center;
+  gap:8px;
+  min-height:44px;
+}
+.recurring-check-row input[type="checkbox"]{
+  width:20px !important;
+  height:20px !important;
+  min-height:20px !important;
+}
+.installment-edit-fields{
+  padding-top:12px;
+  border-top:1px solid var(--line);
+}
+.installment-edit-heading{
+  font-weight:800;
+  margin-bottom:10px;
+}
+.recurring-edit-grid.nested{
+  margin-top:0;
+}
+@media(max-width:600px){
+  .recurring-edit-grid{grid-template-columns:1fr}
+  .recurring-edit-grid .span-2{grid-column:auto}
+}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -1034,8 +1092,31 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 <section id="bills" class="panel">
 <div class="grid">
-<div class="card full"><div class="row"><div><h2>Bills and recurring items</h2><p class="note">Active recurring items only. “End recurring” stops future occurrences immediately while keeping past Timeline history.</p></div><button type="button" id="toggleEndedRecurring" class="secondary">Show / hide ended</button></div><div id="billCards"></div></div>
-<div class="card full"><h2>Add recurring item</h2><div class="formgrid"><div><label>Item / purpose</label><input id="recName" placeholder="e.g. Loan payment"></div><div><label>Payee (optional)</label><input id="recPayee" placeholder="Only stored in your browser"></div><div><label>Amount</label><input id="recAmount" type="number" step=".01"></div><div><label>First date</label><input id="recDate" type="date"></div><div><label>Frequency</label><select id="recFrequency"><option value="monthly">Monthly</option><option value="semimonthly">Semi-monthly</option><option value="biweekly">Every 2 weeks</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></div><button class="primary" onclick="addRecurring()">Add recurring</button></div></div>
+<div class="card full">
+  <div class="row">
+    <div>
+      <h2>Bills and recurring items</h2>
+      <p class="note">Active recurring items only. Edit any detail here; “End recurring” stops future occurrences while keeping past Timeline history.</p>
+    </div>
+    <div class="button-row">
+      <button type="button" id="addRecurringTop" class="primary">+ Add recurring</button>
+      <button type="button" id="toggleEndedRecurring" class="secondary">Show / hide ended</button>
+    </div>
+  </div>
+  <div id="billCards"></div>
+</div>
+
+<div class="card full" id="addRecurringCard">
+  <h2>Add recurring item</h2>
+  <div class="formgrid recurring-add-grid">
+    <div><label>Item / purpose</label><input id="recName" placeholder="e.g. Loan payment"></div>
+    <div><label>Payee (optional)</label><input id="recPayee" placeholder="Only stored in your browser"></div>
+    <div><label>Amount</label><input id="recAmount" type="number" step=".01"></div>
+    <div><label>First / next date</label><input id="recDate" type="date"></div>
+    <div><label>Frequency</label><select id="recFrequency"><option value="monthly">Monthly</option><option value="semimonthly">Semi-monthly</option><option value="biweekly">Every 2 weeks</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></div>
+    <button class="primary" onclick="addRecurring()">Add recurring</button>
+  </div>
+</div>
 </div>
 </section>
 
@@ -1152,6 +1233,68 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
         Already reflected
         <span>Record it as received without changing checking.</span>
       </button>
+    </div>
+  </div>
+</div>
+
+
+<div id="recurringEditModal" class="app-modal" role="dialog" aria-modal="true" aria-labelledby="recurringEditTitle">
+  <div class="app-modal-card recurring-edit-card">
+    <div class="row">
+      <div>
+        <h2 id="recurringEditTitle">Edit recurring item</h2>
+        <div class="note">Changes update future Forecast occurrences immediately.</div>
+      </div>
+      <button type="button" class="secondary recurring-edit-close" aria-label="Close">✕</button>
+    </div>
+
+    <div class="recurring-edit-grid">
+      <div class="span-2"><label>Item / purpose</label><input id="editRecName" type="text"></div>
+      <div class="span-2"><label>Payee</label><input id="editRecPayee" type="text"></div>
+      <div><label>Amount</label><input id="editRecAmount" type="number" min="0" step=".01"></div>
+      <div><label>Next date</label><input id="editRecDate" type="date"></div>
+      <div><label>Frequency</label>
+        <select id="editRecFrequency">
+          <option value="monthly">Monthly</option>
+          <option value="semimonthly">Semi-monthly</option>
+          <option value="biweekly">Every 2 weeks</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="annual">Annual</option>
+          <option value="one">One time</option>
+        </select>
+      </div>
+      <div><label>Priority</label>
+        <select id="editRecPriority">
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="flexible">Flexible</option>
+        </select>
+      </div>
+      <div><label>Cash flow</label>
+        <select id="editRecDirection">
+          <option value="expense">💸 Out</option>
+          <option value="income">💰 In</option>
+        </select>
+      </div>
+      <div class="recurring-check-row">
+        <label><input id="editRecOptional" type="checkbox"> Optional / can be excluded</label>
+      </div>
+
+      <div id="installmentEditFields" class="span-2 installment-edit-fields">
+        <div class="installment-edit-heading">Installment payoff</div>
+        <div class="recurring-edit-grid nested">
+          <div><label>Remaining balance</label><input id="editRecRemaining" type="number" min="0" step=".01"></div>
+          <div><label>Payments remaining</label><input id="editRecPaymentsRemaining" type="number" min="1" step="1"></div>
+          <div><label>Final payment</label><input id="editRecFinalPayment" type="number" min="0" step=".01"></div>
+          <div><label>Plan label</label><input id="editRecProgress" type="text" placeholder="e.g. 3 of 6"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="button-row" style="margin-top:16px;justify-content:flex-end">
+      <button type="button" class="secondary recurring-edit-cancel">Cancel</button>
+      <button type="button" class="primary recurring-edit-save">Save changes</button>
     </div>
   </div>
 </div>
@@ -1393,10 +1536,48 @@ function occurrenceAmount(item,date){
  return Number.isFinite(value)?Math.abs(value):0;
 }
 function occurrences(item,start,end){
- let dates=[],d=parseDate(item.date);if(item.frequency==="one"){if(d>=start&&d<=end)dates.push(d);return dates}
- while(d<start){if(item.frequency==="monthly")d=addMonths(d,1);else if(item.frequency==="quarterly")d=addMonths(d,3);else if(item.frequency==="annual")d=addMonths(d,12);else if(item.frequency==="biweekly")d=new Date(d.getTime()+14*864e5);else if(item.frequency==="semimonthly")d=nextSemi(d);else break}
- while(d<=end){dates.push(new Date(d));if(item.frequency==="monthly")d=addMonths(d,1);else if(item.frequency==="quarterly")d=addMonths(d,3);else if(item.frequency==="annual")d=addMonths(d,12);else if(item.frequency==="biweekly")d=new Date(d.getTime()+14*864e5);else if(item.frequency==="semimonthly")d=nextSemi(d);else break}
- return dates
+ let dates=[],d=parseDate(item.date);
+ if(item.frequency==="one"){
+  if(d>=start&&d<=end)dates.push(d);
+  return dates;
+ }
+
+ const limit=item.installmentPlan?Math.max(0,Math.floor(Number(item.paymentsRemaining)||0)):Infinity;
+ let generated=0;
+
+ // For finite installment plans, the stored date is the next unpaid payment.
+ // Do not fast-forward by silently consuming payments before the forecast start.
+ if(item.installmentPlan){
+  while(d<start){
+   if(item.frequency==="monthly")d=addMonths(d,1);
+   else if(item.frequency==="quarterly")d=addMonths(d,3);
+   else if(item.frequency==="annual")d=addMonths(d,12);
+   else if(item.frequency==="biweekly")d=new Date(d.getTime()+14*864e5);
+   else if(item.frequency==="semimonthly")d=nextSemi(d);
+   else break;
+  }
+ }else{
+  while(d<start){
+   if(item.frequency==="monthly")d=addMonths(d,1);
+   else if(item.frequency==="quarterly")d=addMonths(d,3);
+   else if(item.frequency==="annual")d=addMonths(d,12);
+   else if(item.frequency==="biweekly")d=new Date(d.getTime()+14*864e5);
+   else if(item.frequency==="semimonthly")d=nextSemi(d);
+   else break;
+  }
+ }
+
+ while(d<=end && generated<limit){
+  dates.push(new Date(d));
+  generated++;
+  if(item.frequency==="monthly")d=addMonths(d,1);
+  else if(item.frequency==="quarterly")d=addMonths(d,3);
+  else if(item.frequency==="annual")d=addMonths(d,12);
+  else if(item.frequency==="biweekly")d=new Date(d.getTime()+14*864e5);
+  else if(item.frequency==="semimonthly")d=nextSemi(d);
+  else break;
+ }
+ return dates;
 }
 
 
@@ -1405,9 +1586,16 @@ function buildForecast(days=365){
  const start=parseDate(state.balanceAsOf||state.startDate),end=new Date(start.getTime()+days*864e5),events=[];
  [...state.recurring,...state.oneTime].forEach(item=>{
   if(isArchived(item.id)||isPaused(item.id))return;if(item.optional&&!state.includeOptional)return;if(item.windfall&&!state.includeWindfall)return;if(item.tripPlanSource&&!state.includeTripPlan)return;if(item.bigPurchasePlanSource&&!state.includeBigPurchasePlan)return;
-  occurrences(item,start,end).forEach(d=>{
+  const itemDates=occurrences(item,start,end);
+  itemDates.forEach((d,index)=>{
    let date=iso(d),ex=getException(item.id,date);if(ex?.status==="paid"||ex?.status==="skipped"||ex?.status==="received"||ex?.status==="reconciled")return;
-   if(ex?.date)date=ex.date;let amount=ex?.amount??item.amount;events.push({...item,eventDate:date,amount,sourceDate:iso(d)})
+   if(ex?.date)date=ex.date;
+   let amount=ex?.amount??item.amount;
+   if(item.installmentPlan){
+    const limit=Math.max(1,Math.floor(Number(item.paymentsRemaining)||1));
+    if(index===limit-1 && Number(item.finalPaymentAmount)>0)amount=Number(item.finalPaymentAmount);
+   }
+   events.push({...item,eventDate:date,amount,sourceDate:iso(d)})
   })
  });
  events.sort((a,b)=>a.eventDate.localeCompare(b.eventDate)||(a.direction==="income"?-1:1));let bal=state.currentBalance;
@@ -2020,7 +2208,80 @@ function closeMoveModal(event){
  moveModal.classList.remove("open");
  activeMove={id:null,sourceDate:null,selectedDate:null,context:null};
 }
-function changeRecurring(id){let item=state.recurring.find(x=>x.id===id);if(!item)return;let a=prompt("New recurring amount:",item.amount);if(a===null)return;let d=prompt("New recurring first/next date (YYYY-MM-DD):",item.date);if(!d)return;let f=prompt("Frequency: monthly, semimonthly, biweekly, quarterly, annual, or one",item.frequency);if(!["monthly","semimonthly","biweekly","quarterly","annual","one"].includes(f))return alert("Frequency not recognized.");item.amount=Math.abs(Number(a));item.date=d;item.frequency=f;save();renderAll()}
+let activeRecurringEditId=null;
+
+function changeRecurring(id){
+ const item=state.recurring.find(x=>x.id===id);
+ if(!item)return;
+ activeRecurringEditId=id;
+
+ editRecName.value=item.name||"";
+ editRecPayee.value=item.payee||"";
+ editRecAmount.value=Number(item.amount||0);
+ editRecDate.value=item.date||"";
+ editRecFrequency.value=item.frequency||"monthly";
+ editRecPriority.value=item.priority||"medium";
+ editRecDirection.value=item.direction==="income"?"income":"expense";
+ editRecOptional.checked=!!item.optional;
+
+ const installment=!!item.installmentPlan;
+ installmentEditFields.style.display=installment?"block":"none";
+ editRecRemaining.value=installment?Number(item.remainingBalance||0):"";
+ editRecPaymentsRemaining.value=installment?Number(item.paymentsRemaining||1):"";
+ editRecFinalPayment.value=installment?Number(item.finalPaymentAmount??item.amount??0):"";
+ editRecProgress.value=installment?(item.installmentProgress||""):"";
+
+ recurringEditModal.classList.add("show");
+}
+
+function closeRecurringEditModal(){
+ recurringEditModal.classList.remove("show");
+ activeRecurringEditId=null;
+}
+
+function saveRecurringEdit(){
+ const item=state.recurring.find(x=>x.id===activeRecurringEditId);
+ if(!item)return closeRecurringEditModal();
+
+ const name=String(editRecName.value||"").trim();
+ const amount=Math.abs(Number(editRecAmount.value));
+ const date=editRecDate.value;
+ const frequency=editRecFrequency.value;
+
+ if(!name)return alert("Item / purpose cannot be blank.");
+ if(!Number.isFinite(amount))return alert("Enter a valid amount.");
+ if(!date)return alert("Choose a next date.");
+ if(!["monthly","semimonthly","biweekly","quarterly","annual","one"].includes(frequency))return alert("Choose a valid frequency.");
+
+ item.name=name;
+ item.payee=String(editRecPayee.value||"").trim();
+ item.amount=amount;
+ item.date=date;
+ item.frequency=frequency;
+ item.priority=editRecPriority.value||"medium";
+ item.direction=editRecDirection.value==="income"?"income":"expense";
+ item.optional=!!editRecOptional.checked;
+
+ if(item.id==="pay"){
+  state.incomeName=item.name;
+  state.paycheck=item.amount;
+ }
+
+ if(item.installmentPlan){
+  const remaining=Math.max(0,Number(editRecRemaining.value)||0);
+  const payments=Math.max(1,Math.floor(Number(editRecPaymentsRemaining.value)||1));
+  const finalPayment=Math.max(0,Number(editRecFinalPayment.value)||0);
+  item.remainingBalance=remaining;
+  item.paymentsRemaining=payments;
+  item.finalPaymentAmount=finalPayment;
+  item.installmentProgress=String(editRecProgress.value||"").trim();
+ }
+
+ save();
+ closeRecurringEditModal();
+ renderAll();
+}
+
 function pauseRecurring(id){if(state.paused.includes(id))state.paused=state.paused.filter(x=>x!==id);else state.paused.push(id);save();renderAll()}
 function archiveRecurring(id){
  const item=state.recurring.find(x=>x.id===id);
@@ -2039,14 +2300,14 @@ function renderBills(){
  billCards.innerHTML=rows.length?rows.map(r=>`<div class="bill-card ${isArchived(r.id)?"archived":""}">
   <div class="row">
    <div style="min-width:0;flex:1">
-    <strong>${esc(r.name)}</strong>
-    <div class="note">${r.date} · ${r.frequency} · ${money(r.amount)} · <span class="pill ${r.priority}">${r.priority}</span>${r.optional?" · optional":""}${isArchived(r.id)?" · ended":""}</div>
+    <button type="button" class="bill-name-edit recurring-action" data-action="change" data-id="${esc(r.id)}" title="Edit recurring item">${esc(r.name)}</button>
+    <div class="note">${r.date} · ${r.frequency} · ${money(r.amount)} · <span class="pill ${r.priority}">${r.priority}</span>${r.optional?" · optional":""}${r.installmentPlan?` · <strong>${esc(r.installmentProgress||"installment")}</strong> · ${money(r.remainingBalance||0)} remaining`:""}${isArchived(r.id)?" · ended":""}</div>
     ${payeeEditor(r)}
    </div>
    <div class="button-row compact recurring-actions">
     ${isArchived(r.id)
       ?`<button type="button" class="success recurring-action" data-action="restore" data-id="${esc(r.id)}">↩ Restore</button>`
-      :`<button type="button" class="secondary recurring-action" data-action="change" data-id="${esc(r.id)}">🔁 Change</button>
+      :`<button type="button" class="secondary recurring-action" data-action="change" data-id="${esc(r.id)}">✏️ Edit details</button>
         <button type="button" class="secondary recurring-action" data-action="pause" data-id="${esc(r.id)}">${isPaused(r.id)?"▶ Resume":"💤 Pause"}</button>
         <button type="button" class="danger recurring-action" data-action="end" data-id="${esc(r.id)}">🛑 End recurring</button>`}
    </div>
@@ -2060,8 +2321,9 @@ function bindRecurringActions(){
  if(recurringActionsBound)return;
  const host=document.getElementById("billCards");
  if(!host)return;
+
  host.addEventListener("click",event=>{
-  const button=event.target.closest("button.recurring-action");
+  const button=event.target.closest(".recurring-action");
   if(!button||!host.contains(button))return;
   event.preventDefault();
   event.stopPropagation();
@@ -2073,8 +2335,25 @@ function bindRecurringActions(){
   if(action==="end")return archiveRecurring(id);
   if(action==="restore")return restoreRecurring(id);
  });
+
  const toggle=document.getElementById("toggleEndedRecurring");
  if(toggle)toggle.addEventListener("click",toggleArchived);
+
+ const addTop=document.getElementById("addRecurringTop");
+ if(addTop)addTop.addEventListener("click",()=>{
+  const card=document.getElementById("addRecurringCard");
+  if(card)card.scrollIntoView({behavior:"smooth",block:"start"});
+  setTimeout(()=>document.getElementById("recName")?.focus(),250);
+ });
+
+ const modal=document.getElementById("recurringEditModal");
+ if(modal){
+  modal.querySelector(".recurring-edit-close")?.addEventListener("click",closeRecurringEditModal);
+  modal.querySelector(".recurring-edit-cancel")?.addEventListener("click",closeRecurringEditModal);
+  modal.querySelector(".recurring-edit-save")?.addEventListener("click",saveRecurringEdit);
+  modal.addEventListener("click",e=>{if(e.target===modal)closeRecurringEditModal()});
+ }
+
  recurringActionsBound=true;
 }
 
@@ -2629,6 +2908,6 @@ renderAll();
 
 window.addEventListener("resize",closeForecastGridGap);
 </script>
-<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.36</div>
+<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.37</div>
 </body>
 </html>
