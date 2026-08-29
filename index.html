@@ -241,6 +241,51 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 .planning-explainer strong{display:block;margin-bottom:6px;font-size:1.05rem}
 .planning-explainer p{margin:0;color:#667085;line-height:1.5}
 
+
+.app-modal{
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  background:rgba(15,23,42,.45);
+  padding:20px;
+  align-items:center;
+  justify-content:center;
+}
+.app-modal.show{display:flex}
+.app-modal-card{
+  width:min(520px,100%);
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:20px;
+  box-shadow:0 18px 50px rgba(15,23,42,.22);
+}
+.modal-close{width:42px;min-width:42px;padding:8px}
+.paid-choice-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:16px;
+}
+.paid-choice-grid button{
+  min-height:82px;
+  text-align:left;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:4px;
+}
+.paid-choice-grid button span{
+  display:block;
+  font-size:12px;
+  font-weight:500;
+  opacity:.82;
+}
+@media(max-width:560px){
+  .paid-choice-grid{grid-template-columns:1fr}
+}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -1128,25 +1173,35 @@ function receiveIncome(id,date){
 
 function markPaid(id,date){
  const item=[...state.recurring,...state.oneTime].find(x=>x.id===id);
- if(item?.direction==="income")return receiveIncome(id,date);
+ if(!item)return;
+ if(item.direction==="income")return receiveIncome(id,date);
  activePaid={id,sourceDate:date};
  const amount=occurrenceAmount(item,date);
- paidModalDescription.textContent=`${item?.name||"Payment"} · ${money(amount)}`;
- paidModal.classList.add("show");
+ const modal=document.getElementById("paidModal");
+ const desc=document.getElementById("paidModalDescription");
+ if(!modal||!desc){
+  const already=confirm(`${item.name} · ${money(amount)}\n\nIs this payment ALREADY reflected in your reconciled checking balance?\n\nOK = already reflected\nCancel = subtract it now`);
+  return already?confirmPaidAlreadyReflected():confirmPaidAndSubtract();
+ }
+ desc.textContent=`${item.name||"Payment"} · ${money(amount)}`;
+ modal.classList.add("show");
 }
 
 function closePaidModal(){
- paidModal.classList.remove("show");
+ const modal=document.getElementById("paidModal");
+ if(modal)modal.classList.remove("show");
  activePaid={id:null,sourceDate:null};
 }
 function confirmPaidAndSubtract(){
  const {id,sourceDate}=activePaid;
- const item=[...state.recurring,...state.oneTime].find(x=>x.id===id);
+ const item=sourceItem(id);
  if(!item)return closePaidModal();
- const amount=occurrenceAmount(item,sourceDate);
- state.currentBalance=Number(state.currentBalance)-Number(amount);
- state.balanceAsOf=iso(new Date());
+ const existing=getException(id,sourceDate);
+ if(existing?.status==="paid"||existing?.status==="reconciled")return closePaidModal();
+ const amount=Number(occurrenceAmount(item,sourceDate)||0);
+ state.currentBalance=Number(state.currentBalance||0)-amount;
  setException(id,sourceDate,{status:"paid",paidAt:iso(new Date()),balanceAdjusted:true});
+ syncBalanceInputs();
  closePaidModal();
  save();
  renderAll();
@@ -1154,6 +1209,8 @@ function confirmPaidAndSubtract(){
 function confirmPaidAlreadyReflected(){
  const {id,sourceDate}=activePaid;
  if(!id)return closePaidModal();
+ const existing=getException(id,sourceDate);
+ if(existing?.status==="paid"||existing?.status==="reconciled")return closePaidModal();
  setException(id,sourceDate,{status:"paid",paidAt:iso(new Date()),balanceAdjusted:false});
  closePaidModal();
  save();
@@ -1692,5 +1749,31 @@ if ("serviceWorker" in navigator) {
 
 window.addEventListener("resize",closeForecastGridGap);
 </script>
+
+<div id="paidModal" class="app-modal" role="dialog" aria-modal="true" aria-labelledby="paidModalTitle">
+  <div class="app-modal-card">
+    <div class="row">
+      <div>
+        <h2 id="paidModalTitle">Mark payment paid</h2>
+        <div id="paidModalDescription" class="note"></div>
+      </div>
+      <button type="button" class="secondary modal-close" onclick="closePaidModal()" aria-label="Close">✕</button>
+    </div>
+    <p class="note" style="margin-top:12px">
+      Choose whether this payment still needs to be deducted from checking or is already included in your reconciled balance.
+    </p>
+    <div class="paid-choice-grid">
+      <button type="button" class="success" onclick="confirmPaidAndSubtract()">
+        Paid &amp; subtract
+        <span>Subtract this payment from checking now.</span>
+      </button>
+      <button type="button" class="secondary" onclick="confirmPaidAlreadyReflected()">
+        Already reflected
+        <span>Remove this occurrence without changing checking.</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
