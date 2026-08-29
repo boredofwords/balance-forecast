@@ -575,6 +575,86 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   width:100% !important;
 }
 
+
+/* FIX 44.33: deterministic selected radio dot */
+#forecast .cash-direction-toggle .cash-radio-input,
+#forecast .quick-direction .cash-radio-input{
+  position:absolute !important;
+  opacity:0 !important;
+  width:1px !important;
+  height:1px !important;
+  min-width:1px !important;
+  min-height:1px !important;
+  pointer-events:none !important;
+}
+#forecast .cash-radio-dot{
+  position:relative !important;
+  display:inline-block !important;
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  min-height:16px !important;
+  flex:0 0 16px !important;
+  border:1.8px solid #6b7280 !important;
+  border-radius:50% !important;
+  background:#fff !important;
+  box-sizing:border-box !important;
+}
+#forecast .cash-radio-input:checked + .cash-radio-dot::after{
+  content:"" !important;
+  position:absolute !important;
+  width:8px !important;
+  height:8px !important;
+  border-radius:50% !important;
+  background:var(--accent) !important;
+  top:50% !important;
+  left:50% !important;
+  transform:translate(-50%,-50%) !important;
+}
+#forecast .cash-direction-toggle label:has(.cash-radio-input:checked){
+  font-weight:800 !important;
+}
+#forecast .quick-direction label:has(.cash-radio-input:checked){
+  font-weight:800 !important;
+}
+
+/* FIX 44.33: target the REAL Quarterly Windfall container */
+#forecast .forecast-scenario-card .scenario-fields.windfall-stack{
+  display:flex !important;
+  flex-direction:column !important;
+  grid-template-columns:none !important;
+  gap:10px !important;
+  width:100% !important;
+  min-width:0 !important;
+  align-items:stretch !important;
+}
+#forecast .forecast-scenario-card .scenario-fields.windfall-stack > div{
+  display:block !important;
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  grid-column:auto !important;
+  box-sizing:border-box !important;
+}
+#forecast .forecast-scenario-card .scenario-fields.windfall-stack label{
+  display:block !important;
+  width:100% !important;
+  margin-bottom:5px !important;
+}
+#forecast .forecast-scenario-card .scenario-fields.windfall-stack input{
+  display:block !important;
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  box-sizing:border-box !important;
+}
+#forecast #scenarioWindfallAmount,
+#forecast #scenarioWindfallDate{
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -618,7 +698,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
     <div><label>Payee (optional)</label><input id="newPayee" placeholder="Optional"></div>
     <div><label>Date</label><input id="newDate" type="date"></div>
     <div><label>Amount</label><input id="newAmount" type="number" step=".01"></div>
-    <div><label>Cash flow</label><div class="quick-direction"><label class="out"><input type="radio" name="newDirectionChoice" value="expense" checked> 💸 Out</label><label class="in"><input type="radio" name="newDirectionChoice" value="income"> 💰 In</label></div></div>
+    <div><label>Cash flow</label><div class="quick-direction"><label class="out"><input class="cash-radio-input" type="radio" name="newDirectionChoice" value="expense" checked><span class="cash-radio-dot" aria-hidden="true"></span><span>💸 Out</span></label><label class="in"><input class="cash-radio-input" type="radio" name="newDirectionChoice" value="income"><span class="cash-radio-dot" aria-hidden="true"></span><span>💰 In</span></label></div></div>
     <button class="primary" onclick="addOneTime()">Add</button>
   </div>
 </div>
@@ -695,7 +775,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 <div class="scenario-group">
   <div class="scenario-heading">Quarterly windfall</div>
-  <div class="scenario-fields">
+  <div class="scenario-fields windfall-stack">
     <div class="windfall-name"><label>Name</label><input id="scenarioWindfallName" type="text" onchange="saveWindfallSettings()"></div>
     <div><label>Expected amount</label><input id="scenarioWindfallAmount" type="number" min="0" step=".01" oninput="saveWindfallSettings()"></div>
     <div><label>Next expected date</label><input id="scenarioWindfallDate" type="date" onchange="saveWindfallSettings()"></div>
@@ -1106,8 +1186,14 @@ function ledgerDirectionEditor(item){
  const id=esc(item.id);
  const direction=item.direction==="income"?"income":"expense";
  return `<fieldset class="cash-direction-toggle" aria-label="Cash flow direction for ${esc(item.name||"item")}">
-  <label class="cash-out"><input type="radio" name="dir_${id}" value="expense" ${direction==="expense"?"checked":""} onchange="updateLedgerField('${id}','direction','expense')"><span>💸 Out</span></label>
-  <label class="cash-in"><input type="radio" name="dir_${id}" value="income" ${direction==="income"?"checked":""} onchange="updateLedgerField('${id}','direction','income')"><span>💰 In</span></label>
+  <label class="cash-out">
+   <input class="cash-radio-input" type="radio" name="dir_${id}" value="expense" ${direction==="expense"?"checked":""} onchange="updateLedgerField('${id}','direction','expense')">
+   <span class="cash-radio-dot" aria-hidden="true"></span><span>💸 Out</span>
+  </label>
+  <label class="cash-in">
+   <input class="cash-radio-input" type="radio" name="dir_${id}" value="income" ${direction==="income"?"checked":""} onchange="updateLedgerField('${id}','direction','income')">
+   <span class="cash-radio-dot" aria-hidden="true"></span><span>💰 In</span>
+  </label>
  </fieldset>`;
 }
 function payeeEditor(item,compact=false){
@@ -2395,6 +2481,6 @@ renderAll();
 
 window.addEventListener("resize",closeForecastGridGap);
 </script>
-<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.32</div>
+<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.33</div>
 </body>
 </html>
