@@ -809,6 +809,36 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   .recurring-edit-grid .span-2{grid-column:auto}
 }
 
+
+/* FIX 44.38: installment add/edit controls */
+.recurring-installment-toggle{
+  margin-top:14px;
+  padding:12px 14px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#f8fafc;
+}
+.recurring-installment-toggle label,
+.recurring-check-row label{
+  display:flex !important;
+  align-items:center !important;
+  gap:8px !important;
+  font-weight:700;
+}
+.recurring-installment-toggle input[type="checkbox"],
+#editRecInstallmentPlan{
+  width:20px !important;
+  height:20px !important;
+  min-height:20px !important;
+}
+.installment-add-fields{
+  margin-top:12px;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fbfcff;
+}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -1114,6 +1144,23 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
     <div><label>Amount</label><input id="recAmount" type="number" step=".01"></div>
     <div><label>First / next date</label><input id="recDate" type="date"></div>
     <div><label>Frequency</label><select id="recFrequency"><option value="monthly">Monthly</option><option value="semimonthly">Semi-monthly</option><option value="biweekly">Every 2 weeks</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></div>
+  </div>
+
+  <div class="recurring-installment-toggle">
+    <label><input id="recInstallmentPlan" type="checkbox"> Installment purchase / finite payment plan</label>
+  </div>
+
+  <div id="recInstallmentFields" class="installment-add-fields" style="display:none">
+    <div class="settingsgrid">
+      <div><label>Remaining balance</label><input id="recRemainingBalance" type="number" min="0" step=".01"></div>
+      <div><label>Payments remaining</label><input id="recPaymentsRemaining" type="number" min="1" step="1"></div>
+      <div><label>Final payment</label><input id="recFinalPayment" type="number" min="0" step=".01"></div>
+      <div><label>Plan progress</label><input id="recInstallmentProgress" type="text" placeholder="e.g. 3 of 6"></div>
+    </div>
+    <p class="note">Installment plans stop generating future Forecast occurrences after the saved number of payments. The final occurrence can use a smaller final-payment amount.</p>
+  </div>
+
+  <div class="button-row" style="margin-top:12px">
     <button class="primary" onclick="addRecurring()">Add recurring</button>
   </div>
 </div>
@@ -1279,6 +1326,9 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
       </div>
       <div class="recurring-check-row">
         <label><input id="editRecOptional" type="checkbox"> Optional / can be excluded</label>
+      </div>
+      <div class="recurring-check-row">
+        <label><input id="editRecInstallmentPlan" type="checkbox"> Installment purchase / finite payment plan</label>
       </div>
 
       <div id="installmentEditFields" class="span-2 installment-edit-fields">
@@ -1979,10 +2029,56 @@ function addOneTime(){
  save();renderAll();
 }
 function addRecurring(){
- let name=recName.value.trim(),payee=(recPayee.value||"").trim(),date=recDate.value,amount=Math.abs(Number(recAmount.value));
- if(!name||!date||!amount)return alert("Add an item/purpose, first date, and amount.");
- state.recurring.push({id:"r"+Date.now(),name,payee,date,amount,direction:"expense",frequency:recFrequency.value,category:"Bills",optional:false,priority:"medium"});
- recName.value="";recPayee.value="";recAmount.value="";save();renderAll();
+ const name=String(recName.value||"").trim();
+ const payee=String(recPayee.value||"").trim();
+ const amount=Math.abs(Number(recAmount.value));
+ const date=recDate.value;
+ const frequency=recFrequency.value;
+
+ if(!name)return alert("Enter an item / purpose.");
+ if(!Number.isFinite(amount)||amount<=0)return alert("Enter a valid amount.");
+ if(!date)return alert("Choose a first / next date.");
+
+ const installment=!!recInstallmentPlan.checked;
+ const item={
+  id:"rec_"+Date.now(),
+  name,
+  payee,
+  amount,
+  direction:"expense",
+  date,
+  frequency,
+  category:installment?"Debt":"Bills",
+  optional:false,
+  priority:installment?"medium":"high"
+ };
+
+ if(installment){
+  const remaining=Math.max(0,Number(recRemainingBalance.value)||0);
+  const payments=Math.max(1,Math.floor(Number(recPaymentsRemaining.value)||1));
+  const finalPayment=Math.max(0,Number(recFinalPayment.value)||0);
+  item.installmentPlan=true;
+  item.remainingBalance=remaining;
+  item.paymentsRemaining=payments;
+  item.finalPaymentAmount=finalPayment||amount;
+  item.installmentProgress=String(recInstallmentProgress.value||"").trim();
+ }
+
+ state.recurring.push(item);
+ save();
+
+ recName.value="";
+ recPayee.value="";
+ recAmount.value="";
+ recInstallmentPlan.checked=false;
+ recInstallmentFields.style.display="none";
+ recRemainingBalance.value="";
+ recPaymentsRemaining.value="";
+ recFinalPayment.value="";
+ recInstallmentProgress.value="";
+
+ renderAll();
+ showPanel("bills");
 }
 function setException(id,date,patch){let key=occurrenceKey(id,date),ex=state.exceptions.find(x=>x.key===key);if(!ex){ex={key,id,sourceDate:date};state.exceptions.push(ex)}Object.assign(ex,patch);save();renderAll()}
 
@@ -2225,6 +2321,7 @@ function changeRecurring(id){
  editRecOptional.checked=!!item.optional;
 
  const installment=!!item.installmentPlan;
+ editRecInstallmentPlan.checked=installment;
  installmentEditFields.style.display=installment?"block":"none";
  editRecRemaining.value=installment?Number(item.remainingBalance||0):"";
  editRecPaymentsRemaining.value=installment?Number(item.paymentsRemaining||1):"";
@@ -2267,14 +2364,22 @@ function saveRecurringEdit(){
   state.paycheck=item.amount;
  }
 
+ item.installmentPlan=!!editRecInstallmentPlan.checked;
  if(item.installmentPlan){
   const remaining=Math.max(0,Number(editRecRemaining.value)||0);
   const payments=Math.max(1,Math.floor(Number(editRecPaymentsRemaining.value)||1));
   const finalPayment=Math.max(0,Number(editRecFinalPayment.value)||0);
   item.remainingBalance=remaining;
   item.paymentsRemaining=payments;
-  item.finalPaymentAmount=finalPayment;
+  item.finalPaymentAmount=finalPayment||item.amount;
   item.installmentProgress=String(editRecProgress.value||"").trim();
+ }else{
+  delete item.installmentProvider;
+  delete item.installmentMerchant;
+  delete item.installmentProgress;
+  delete item.remainingBalance;
+  delete item.paymentsRemaining;
+  delete item.finalPaymentAmount;
  }
 
  save();
@@ -2338,6 +2443,26 @@ function bindRecurringActions(){
 
  const toggle=document.getElementById("toggleEndedRecurring");
  if(toggle)toggle.addEventListener("click",toggleArchived);
+
+ const addInstallmentToggle=document.getElementById("recInstallmentPlan");
+ if(addInstallmentToggle)addInstallmentToggle.addEventListener("change",()=>{
+  recInstallmentFields.style.display=addInstallmentToggle.checked?"block":"none";
+  if(addInstallmentToggle.checked){
+   if(!recRemainingBalance.value&&recAmount.value)recRemainingBalance.value=recAmount.value;
+   if(!recPaymentsRemaining.value)recPaymentsRemaining.value=1;
+   if(!recFinalPayment.value&&recAmount.value)recFinalPayment.value=recAmount.value;
+  }
+ });
+
+ const editInstallmentToggle=document.getElementById("editRecInstallmentPlan");
+ if(editInstallmentToggle)editInstallmentToggle.addEventListener("change",()=>{
+  installmentEditFields.style.display=editInstallmentToggle.checked?"block":"none";
+  if(editInstallmentToggle.checked){
+   if(!editRecRemaining.value&&editRecAmount.value)editRecRemaining.value=editRecAmount.value;
+   if(!editRecPaymentsRemaining.value)editRecPaymentsRemaining.value=1;
+   if(!editRecFinalPayment.value&&editRecAmount.value)editRecFinalPayment.value=editRecAmount.value;
+  }
+ });
 
  const addTop=document.getElementById("addRecurringTop");
  if(addTop)addTop.addEventListener("click",()=>{
@@ -2908,6 +3033,6 @@ renderAll();
 
 window.addEventListener("resize",closeForecastGridGap);
 </script>
-<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.37</div>
+<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.38</div>
 </body>
 </html>
