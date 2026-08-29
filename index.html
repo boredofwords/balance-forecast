@@ -298,6 +298,28 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 .balance-action-note.expense{color:var(--bad)}
 .balance-action-note.neutral{color:var(--muted)}
 
+
+/* v44.26 planning / forecast usability */
+.cash-direction-toggle{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
+.cash-direction-toggle label{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:999px;padding:6px 9px;font-size:12px;font-weight:800;cursor:pointer;background:#fff}
+.cash-direction-toggle input{position:absolute;opacity:0;pointer-events:none}
+.cash-direction-toggle .cash-in{color:var(--good)}
+.cash-direction-toggle .cash-out{color:var(--bad)}
+.cash-direction-toggle label:has(input:checked){box-shadow:0 0 0 2px currentColor inset;background:#f8fafc}
+.quick-one-time .formgrid{grid-template-columns:1.35fr 1fr .85fr .8fr auto auto;align-items:end}
+.quick-one-time .quick-direction{display:flex;gap:6px;min-height:42px;align-items:center;flex-wrap:wrap}
+.quick-one-time .quick-direction label{display:flex;gap:5px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:8px 10px;font-weight:800;cursor:pointer}
+.quick-one-time .quick-direction input{width:auto}
+.quick-one-time .quick-direction .in{color:var(--good)}
+.quick-one-time .quick-direction .out{color:var(--bad)}
+.plan-balance{font-weight:800}
+.plan-balance.good{color:var(--good)}
+.plan-balance.warn{color:var(--warn)}
+.plan-balance.bad{color:var(--bad)}
+.goal-progress-label{font-weight:700}
+@media(max-width:900px){.quick-one-time .formgrid{grid-template-columns:1fr 1fr}.quick-one-time .formgrid>div:first-child{grid-column:1/-1}}
+@media(max-width:560px){.quick-one-time .formgrid{grid-template-columns:1fr}.quick-one-time .formgrid>div:first-child{grid-column:auto}}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -334,6 +356,17 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 <div id="statusBox"></div>
 <div class="grid">
+<div class="card full quick-one-time">
+  <div class="row"><div><h2 style="margin-bottom:3px">Quick add one-time</h2><p class="note" style="margin:0">Add a one-off bill, deposit, purchase, or adjustment directly to the forecast.</p></div></div>
+  <div class="formgrid" style="margin-top:10px">
+    <div><label>Item / purpose</label><input id="newName" placeholder="e.g. repair, reimbursement"></div>
+    <div><label>Payee (optional)</label><input id="newPayee" placeholder="Optional"></div>
+    <div><label>Date</label><input id="newDate" type="date"></div>
+    <div><label>Amount</label><input id="newAmount" type="number" step=".01"></div>
+    <div><label>Cash flow</label><div class="quick-direction"><label class="out"><input type="radio" name="newDirectionChoice" value="expense" checked> 💸 Out</label><label class="in"><input type="radio" name="newDirectionChoice" value="income"> 💰 In</label></div></div>
+    <button class="primary" onclick="addOneTime()">Add</button>
+  </div>
+</div>
 <div class="card metric">
   <div class="label">Available checking</div>
   <div class="inline-balance-editor editable-metric">
@@ -360,7 +393,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 </div>
 <div class="card metric"><div class="label">Lowest projected balance</div><div class="value" id="lowestBalance"></div><div class="sub" id="lowestDate"></div></div>
 <div class="card metric"><div class="label">Safe extra today</div><div class="value" id="safeExtra"></div><div class="sub">Above your selected floor</div></div>
-<div class="card metric"><div class="label">SpotMe remaining</div><div class="value" id="spotMeRemaining"></div><div class="sub">Before the –$200 hard limit</div></div>
+<div class="card metric"><div class="label">SpotMe / overdraft protection</div><div class="value" id="spotMeRemaining"></div><div class="sub">Remaining protection · always shown as a negative buffer</div></div>
 
 <div class="card full" style="margin-bottom:12px">
   <div class="row">
@@ -409,10 +442,10 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   <div class="scenario-heading">Quarterly windfall</div>
   <div class="scenario-fields">
     <div class="windfall-name"><label>Name</label><input id="scenarioWindfallName" type="text" onchange="saveWindfallSettings()"></div>
-    <div><label>Expected amount</label><input id="scenarioWindfallAmount" type="number" min="0" step=".01" onchange="saveWindfallSettings()"></div>
+    <div><label>Expected amount</label><input id="scenarioWindfallAmount" type="number" min="0" step=".01" oninput="saveWindfallSettings()"></div>
     <div><label>Next expected date</label><input id="scenarioWindfallDate" type="date" onchange="saveWindfallSettings()"></div>
   </div>
-  <div class="note" style="margin-top:7px">This updates the quarterly windfall used by the forecast and the Goals windfall planner.</div>
+  <div class="note" style="margin-top:7px">This is the single windfall source used by Forecast. Goals can optionally allocate it.</div>
 </div>
 
 <div class="scenario-group">
@@ -429,23 +462,22 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 <div class="scenario-group">
   <div class="scenario-heading">Safety limits</div>
   <div style="margin-top:8px"><label>Preferred balance floor</label><input id="floorInput" type="number" step="25" onchange="saveScenario()"></div>
-  <div style="margin-top:10px"><label>SpotMe overdraft limit</label><input id="spotMeInput" type="number" step="25" onchange="saveScenario()"></div>
+  <div style="margin-top:10px"><label>SpotMe / overdraft protection limit</label><input id="spotMeInput" type="number" step="25" onchange="saveScenario()"></div>
 </div>
 </div>
 
 <div class="card wide forecast-ledger-card"><div class="row"><h2>Forecast ledger</h2><div><label>Show through</label><select id="rangeSelect" onchange="renderAll()"><option value="30">30 days</option><option value="60">60 days</option><option value="90" selected>90 days</option><option value="180">180 days</option></select></div></div>
 <div style="overflow:auto;max-height:530px"><table><thead><tr><th>Date</th><th>Item</th><th>Type</th><th class="amount">Amount</th><th class="amount">Balance</th><th>Actions</th></tr></thead><tbody id="ledgerBody"></tbody></table></div></div>
-<div class="card"><h2>Add one-time item</h2><div style="display:grid;gap:9px"><div><label>Item / purpose</label><input id="newName" placeholder="e.g. Loan payment"></div><div><label>Payee (optional)</label><input id="newPayee" placeholder="Only stored in your browser"></div><div><label>Date</label><input id="newDate" type="date"></div><div><label>Amount</label><input id="newAmount" type="number" step=".01"></div><div><label>Direction</label><select id="newDirection"><option value="expense">Expense</option><option value="income">Income</option></select></div><button class="primary" onclick="addOneTime()">Add to forecast</button></div></div>
+
 </div>
 </section>
 
 <section id="paycheck" class="panel">
 <div class="grid">
-<div class="card full"><div class="row"><div><h2>Paycheck Planner</h2><p class="note">This creates a proposed allocation only. Nothing is marked paid until you apply the plan.</p></div><button class="primary" onclick="buildPaycheckPlan()">Build plan</button></div>
-<div class="settingsgrid"><div><label>Paycheck date</label><input id="plannerDate" type="date" onchange="buildPaycheckPlan()"></div><div><label>Expected deposit</label><input id="plannerDeposit" type="number" step=".01" onchange="updatePaycheckFromPlanner()"></div><div><label>Next paycheck date</label><input id="plannerNextDate" type="date" onchange="buildPaycheckPlan()"></div><div><label>Protected floor</label><input id="plannerFloor" type="number" step="25" onchange="updateFloorFromPlanner()"></div></div></div>
-<div class="card half summary-box"><h2>Paycheck summary</h2><div id="plannerSummary"></div></div>
-<div class="card half"><div class="row"><h2>Suggested allocations</h2><button class="success" onclick="applyPaycheckPlan()">Apply selected plan</button></div><div id="allocationList"></div></div>
-<div class="card full"><h2>Allocation result</h2><div id="allocationResult" class="note">Build a plan to see the projected balance after each selected payment.</div></div>
+<div class="card full"><div class="row"><div><h2>Paycheck Planner</h2><p class="note">Plan bills across one pay period or a longer window. Future income inside the selected window is included automatically.</p></div><button class="primary" onclick="buildPaycheckPlan()">Build plan</button></div>
+<div class="settingsgrid"><div><label>Paycheck date</label><input id="plannerDate" type="date" onchange="buildPaycheckPlan()"></div><div><label>Expected deposit</label><input id="plannerDeposit" type="number" step=".01" onchange="updatePaycheckFromPlanner()"></div><div><label>Planning window</label><select id="plannerHorizon" onchange="buildPaycheckPlan()"><option value="nextpay">Until next paycheck</option><option value="1m">Next month</option><option value="3m">Next 3 months</option><option value="6m">Next 6 months</option></select></div><div><label>Next paycheck date</label><input id="plannerNextDate" type="date" onchange="buildPaycheckPlan()"></div><div><label>Protected floor</label><input id="plannerFloor" type="number" step="25" onchange="updateFloorFromPlanner()"></div></div></div>
+<div class="card half summary-box"><h2>Paycheck summary</h2><div id="plannerSummary"></div><hr><h3>Allocation result</h3><div id="allocationResult" class="note">Build a plan to see the projected balance after each selected payment and future deposit.</div></div>
+<div class="card half"><div class="row"><h2>Suggested allocations</h2><button class="success" onclick="applyPaycheckPlan()">Apply selected plan</button></div><p class="note">Applying updates these existing forecast occurrences. It does not create duplicate bills.</p><div id="allocationList"></div></div>
 <div class="card full">
   <div class="row">
     <div>
@@ -583,7 +615,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   <strong>How planning works</strong>
   <p>Build your Vacation / Trip and Big Purchase plans first — those planner totals automatically become your linked goals. If you expect a bonus or other windfall, define it on the Forecast page. Then use Goals to optionally decide how much of that windfall you want to put toward each goal. You do not need a windfall to use the planners or goals.</p>
 </div>
-<div class="grid"><div class="card full"><div class="row"><div><h2>Goals</h2><p class="note">Vacation and big-purchase goal totals stay synced to their planners automatically. Update only what you have actually saved or allocated.</p></div><button class="primary" onclick="addGoal()">Add goal</button></div><div id="linkedGoalSummary" class="goal-summary"></div><div class="button-row" style="margin:12px 0"><button class="secondary" onclick="showPanel('trip')">Open Trip Planner</button><button class="secondary" onclick="showPanel('bigpurchase')">Open Big Purchase Planner</button></div><div id="goalList"></div></div><div class="card full"><h2>Windfall allocation</h2><p class="muted">Optional — use this only if you expect extra income you want to allocate. The windfall amount and date are defined on the Forecast page; this section only decides how to divide it among your goals.</p><div class="settingsgrid"><div><label>Expected windfall</label><input id="windfallAmount" type="number" value="10000" onchange="updateWindfallFromGoals()" oninput="renderGoals()"></div><div><label>Emergency savings %</label><input id="windfallEmergency" type="number" value="40" oninput="renderGoals()"></div><div><label>Vacation %</label><input id="windfallVacation" type="number" value="20" oninput="renderGoals()"></div><div><label>Big-ticket items %</label><input id="windfallBig" type="number" value="40" oninput="renderGoals()"></div></div><div id="windfallResult" style="margin-top:12px"></div></div></div></section>
+<div class="grid"><div class="card full"><div class="row"><div><h2>Goals</h2><p class="note">Vacation and big-purchase targets come from their planners. Their progress shows what has actually been paid.</p></div><button class="primary" onclick="addGoal()">Add goal</button></div><div id="linkedGoalSummary" class="goal-summary"></div><div class="button-row" style="margin:12px 0"><button class="secondary" onclick="showPanel('trip')">Open Trip Planner</button><button class="secondary" onclick="showPanel('bigpurchase')">Open Big Purchase Planner</button></div><div id="goalList"></div></div><div class="card full"><div class="row"><div><h2>Windfall allocation</h2><p class="muted">Optional. The windfall amount and date come from Forecast; this only plans how you would allocate it.</p></div><div class="switchline"><span>Use allocation plan</span><input id="windfallAllocationEnabled" type="checkbox" onchange="saveWindfallAllocation()"></div></div><div id="windfallSourceSummary" class="goal-summary" style="margin:10px 0"></div><div class="settingsgrid"><div><label>Emergency savings %</label><input id="windfallEmergency" type="number" min="0" max="100" oninput="saveWindfallAllocation()"></div><div><label>Vacation %</label><input id="windfallVacation" type="number" min="0" max="100" oninput="saveWindfallAllocation()"></div><div><label>Big-ticket items %</label><input id="windfallBig" type="number" min="0" max="100" oninput="saveWindfallAllocation()"></div></div><div id="windfallResult" style="margin-top:12px"></div></div></div></section>
 
 <section id="settings" class="panel"><div class="grid"><div class="card full"><h2>Core settings</h2><div class="settingsgrid"><div><label>Current checking balance</label><input id="settingBalance" type="number" step=".01" onchange="saveSettings()"></div><div><label>Current savings balance</label><input id="settingSavings" type="number" step=".01" onchange="saveSettings()"></div><div><label>Income name</label><input id="settingIncomeName" type="text" onchange="saveSettings()"></div><div><label>Regular paycheck</label><input id="settingPaycheck" type="number" step=".01" onchange="saveSettings()"></div><div><label>Pay schedule</label><select id="settingPaySchedule" onchange="saveSettings()"><option value="semi">15th & month-end</option><option value="biweekly">Every 2 weeks</option></select></div><div><label>Balance as-of date</label><input id="settingBalanceAsOf" type="date" onchange="saveSettings()"></div><div><label>Original plan start</label><input id="settingStart" type="date" onchange="saveSettings()"></div></div><p class="note">Everything is stored in this browser. Export a backup before clearing browser data or moving devices.</p></div></div>
 <div class="card full" style="margin-top:12px">
@@ -710,6 +742,7 @@ const BASELINE={
  includeOptional:true,
  includeTripPlan:true,
  includeBigPurchasePlan:true,
+ windfallAllocation:{enabled:false,emergency:40,vacation:20,big:40},
  recurring:[
   {id:"pay",name:"Paycheck",payee:"",amount:2000,direction:"income",date:"2026-09-15",frequency:"semimonthly",category:"Income",optional:false,priority:"critical"},
   {id:"rent",name:"Rent / mortgage",payee:"",amount:1200,direction:"expense",date:"2026-09-01",frequency:"monthly",category:"Housing",optional:false,priority:"critical"},
@@ -815,7 +848,11 @@ function ledgerAmountEditor(item){
 }
 function ledgerDirectionEditor(item){
  if(!item)return "";
- return `<select class="ledger-inline ledger-direction" aria-label="Income or expense for ${esc(item.name||"item")}" onchange="updateLedgerField('${esc(item.id)}','direction',this.value)"><option value="expense"${item.direction==="expense"?" selected":""}>Expense</option><option value="income"${item.direction==="income"?" selected":""}>Income</option></select>`;
+ const id=esc(item.id);
+ return `<div class="cash-direction-toggle" aria-label="Cash flow direction for ${esc(item.name||"item")}">
+  <label class="cash-out"><input type="radio" name="dir_${id}" value="expense" ${item.direction==="expense"?"checked":""} onchange="updateLedgerField('${id}','direction','expense')">💸 Out</label>
+  <label class="cash-in"><input type="radio" name="dir_${id}" value="income" ${item.direction==="income"?"checked":""} onchange="updateLedgerField('${id}','direction','income')">💰 In</label>
+ </div>`;
 }
 function payeeEditor(item,compact=false){
  if(!item)return "";
@@ -845,6 +882,7 @@ function migrate(s){
  if(s.includeOptional==null)s.includeOptional=true;
  if(s.includeTripPlan==null)s.includeTripPlan=true;
  if(s.includeBigPurchasePlan==null)s.includeBigPurchasePlan=true;
+ if(!s.windfallAllocation)s.windfallAllocation={enabled:false,emergency:40,vacation:20,big:40};
  s.balanceAsOf=s.balanceAsOf||s.startDate;
  s.incomeName=s.incomeName||"Paycheck";
  (s.recurring||[]).forEach(x=>{
@@ -946,6 +984,9 @@ function closeForecastGridGap(){
 
 function renderAll(){
  setProtectedFloor(state.floor);
+ if(state.tripPlan?.adopted)syncTripPlanToForecast();
+ if(state.bigPurchasePlan?.adopted)syncBigPurchasePlanToForecast();
+ syncLinkedPlannerGoals();
  renderForecast();renderBills();renderTimeline();renderGoals();renderTripPlanner();renderBigPurchasePlanner();initPlannerDefaults();
  bindForecastActions();
  bindPaidModalActions();
@@ -1029,7 +1070,7 @@ function renderForecast(){
  lowestBalance.textContent=money(low);lowestBalance.style.color=low<0?"var(--bad)":low<state.floor?"var(--warn)":"var(--good)";lowestDate.textContent=lowEvent?new Date(lowEvent.eventDate+"T12:00:00").toLocaleDateString():"Today";safeExtra.textContent=money(Math.max(0,low-state.floor));
  const hard=-Math.abs(state.spotMeLimit);
  const projectedLow=Math.min(state.currentBalance,...events.map(e=>e.balance));
- const spot=projectedLow>=0?Math.abs(state.spotMeLimit):Math.max(0,Math.abs(state.spotMeLimit)+projectedLow);spotMeRemaining.textContent=money(spot);spotMeRemaining.style.color=spot<50?"var(--bad)":spot<100?"var(--warn)":"var(--good)";
+ const spot=projectedLow>=0?Math.abs(state.spotMeLimit):Math.max(0,Math.abs(state.spotMeLimit)+projectedLow);spotMeRemaining.textContent=`−${money(spot).replace("-","")}`;spotMeRemaining.style.color=spot<50?"var(--bad)":spot<100?"var(--warn)":"var(--good)";
  statusBox.innerHTML=low<hard?`<div class="status bad"><strong>SpotMe limit exceeded:</strong> forecast reaches ${money(low)}.</div>`:low<0?`<div class="status warn"><strong>SpotMe would be used:</strong> forecast reaches ${money(low)}; ${money(low-hard)} remains before the hard limit.</div>`:low<state.floor?`<div class="status warn"><strong>Tight forecast:</strong> lowest balance ${money(low)} is below your ${money(state.floor)} floor.</div>`:`<div class="status good"><strong>Forecast stays above your floor.</strong> Lowest projected balance ${money(low)}.</div>`;
  ledgerBody.innerHTML=visible.map(e=>{
  const item=sourceItem(e.id);
@@ -1213,7 +1254,6 @@ function saveWindfallSettings(){
  item.amount=Math.max(0,Number(scenarioWindfallAmount.value)||0);
  if(scenarioWindfallDate.value)item.date=scenarioWindfallDate.value;
  item.frequency="quarterly";item.direction="income";item.windfall=true;
- if(document.getElementById("windfallAmount"))windfallAmount.value=item.amount;
  save();renderAll();
 }
 
@@ -1288,6 +1328,18 @@ function saveSettings(){
  syncBalanceInputs();
  save();
  renderAll();
+}
+function addOneTime(){
+ const name=(document.getElementById("newName")?.value||"").trim();
+ const payee=(document.getElementById("newPayee")?.value||"").trim();
+ const date=document.getElementById("newDate")?.value||"";
+ const amount=Math.abs(Number(document.getElementById("newAmount")?.value)||0);
+ const direction=document.querySelector('input[name="newDirectionChoice"]:checked')?.value||"expense";
+ if(!name||!date||!amount)return alert("Add an item/purpose, date, and amount.");
+ state.oneTime.push({id:"one_"+Date.now(),name,payee,date,amount,direction,frequency:"one",category:direction==="income"?"Income":"One-time",optional:false,priority:"medium"});
+ newName.value="";newPayee.value="";newAmount.value="";
+ const out=document.querySelector('input[name="newDirectionChoice"][value="expense"]');if(out)out.checked=true;
+ save();renderAll();
 }
 function addRecurring(){
  let name=recName.value.trim(),payee=(recPayee.value||"").trim(),date=recDate.value,amount=Math.abs(Number(recAmount.value));
@@ -1537,16 +1589,55 @@ function initPlannerDefaults(){
 }
 function priorityRank(p){return {critical:0,high:1,medium:2,flexible:3}[p]??2}
 let plannerItems=[];
+let plannerIncomeEvents=[];
+let plannerWindow={start:"",end:""};
+function plannerWindowEnd(pd,nd){
+ const mode=document.getElementById("plannerHorizon")?.value||"nextpay";
+ if(mode==="nextpay")return nd;
+ const start=parseDate(pd);
+ if(mode==="1m")return iso(addMonths(start,1));
+ if(mode==="3m")return iso(addMonths(start,3));
+ if(mode==="6m")return iso(addMonths(start,6));
+ return nd;
+}
 function buildPaycheckPlan(){
- if(!plannerDate.value)initPlannerDefaults();let pd=plannerDate.value||state.startDate,nd=plannerNextDate.value||nextPayDateAfter(pd),deposit=Number(state.paycheck)||0,floor=Number(state.floor)||0;plannerFloor.value=floor;plannerDeposit.value=deposit.toFixed(2);
- let start=parseDate(pd),end=parseDate(nd),events=buildForecast().filter(e=>e.direction==="expense"&&parseDate(e.eventDate)>=start&&parseDate(e.eventDate)<end);
- plannerItems=events.sort((a,b)=>priorityRank(a.priority)-priorityRank(b.priority)||a.eventDate.localeCompare(b.eventDate)).map((e,i)=>({...e,selected:e.priority!=="flexible",planAmount:e.amount,planId:"p"+i}));
- plannerSummary.innerHTML=`<div><strong>Starting balance:</strong> ${money(state.currentBalance)}</div><div><strong>Expected deposit:</strong> ${money(deposit)}</div><div><strong>Available after deposit:</strong> ${money(state.currentBalance+deposit)}</div><div><strong>Protected floor:</strong> ${money(floor)}</div>`;
- allocationList.innerHTML=plannerItems.map(x=>`<div class="allocation-row"><input type="checkbox" ${x.selected?"checked":""} onchange="updatePlanItem('${x.planId}',this.checked,null)"><div><strong>${esc(x.name)}</strong>${x.payee?`<div class="note">Payee: ${esc(x.payee)}</div>`:""}<div class="note">Due ${x.eventDate}</div></div><input type="number" step=".01" value="${x.planAmount}" oninput="updatePlanItem('${x.planId}',null,this.value)"><span class="pill ${x.priority} priority">${x.priority}</span></div>`).join("");
- renderAllocationResult();buildRescuePlan();renderAutopayWatch()
+ if(!plannerDate.value)initPlannerDefaults();
+ const pd=plannerDate.value||state.startDate;
+ const nd=plannerNextDate.value||nextPayDateAfter(pd);
+ const windowEnd=plannerWindowEnd(pd,nd);
+ const deposit=Number(state.paycheck)||0;
+ const floor=Number(state.floor)||0;
+ plannerFloor.value=floor;plannerDeposit.value=deposit.toFixed(2);
+ plannerWindow={start:pd,end:windowEnd};
+ const start=parseDate(pd),end=parseDate(windowEnd);
+ const windowEvents=buildForecast(365).filter(e=>parseDate(e.eventDate)>=start&&parseDate(e.eventDate)<end);
+ const expenses=windowEvents.filter(e=>e.direction==="expense");
+ plannerIncomeEvents=windowEvents.filter(e=>e.direction==="income" && !(e.id==="pay"&&e.eventDate===pd));
+ plannerItems=expenses.sort((a,b)=>priorityRank(a.priority)-priorityRank(b.priority)||a.eventDate.localeCompare(b.eventDate)).map((e,i)=>({...e,selected:e.priority!=="flexible",planAmount:e.amount,planId:"p"+i}));
+ const futureIncome=plannerIncomeEvents.reduce((s,e)=>s+Number(e.amount||0),0);
+ plannerSummary.innerHTML=`<div><strong>Starting balance:</strong> ${money(state.currentBalance)}</div><div><strong>Expected deposit:</strong> ${money(deposit)}</div><div><strong>Additional income in window:</strong> ${money(futureIncome)}</div><div><strong>Total available before planned expenses:</strong> ${money(state.currentBalance+deposit+futureIncome)}</div><div><strong>Window:</strong> ${new Date(pd+"T12:00:00").toLocaleDateString()} → ${new Date(windowEnd+"T12:00:00").toLocaleDateString()}</div><div><strong>Protected floor:</strong> ${money(floor)}</div>`;
+ allocationList.innerHTML=plannerItems.length?plannerItems.map(x=>`<div class="allocation-row"><input type="checkbox" ${x.selected?"checked":""} onchange="updatePlanItem('${x.planId}',this.checked,null)"><div><strong>${esc(x.name)}</strong>${x.payee?`<div class="note">Payee: ${esc(x.payee)}</div>`:""}<div class="note">Due ${new Date(x.eventDate+"T12:00:00").toLocaleDateString()}</div></div><input type="number" step=".01" value="${x.planAmount}" oninput="updatePlanItem('${x.planId}',null,this.value)"><span class="pill ${x.priority} priority">${x.priority}</span></div>`).join(""):'<div class="note">No expenses fall inside this planning window.</div>';
+ renderAllocationResult();buildRescuePlan();renderAutopayWatch();
 }
 function updatePlanItem(id,selected,amount){let x=plannerItems.find(x=>x.planId===id);if(selected!==null)x.selected=selected;if(amount!==null&&!isNaN(Number(amount)))x.planAmount=Math.abs(Number(amount));renderAllocationResult();buildRescuePlan()}
-function renderAllocationResult(){let bal=state.currentBalance+(Number(plannerDeposit.value)||0),rows=[];plannerItems.filter(x=>x.selected).forEach(x=>{bal-=x.planAmount;rows.push(`<div class="row"><span>${x.name}</span><span>${money(x.planAmount)} → <strong>${money(bal)}</strong></span></div>`)});let floor=Number(plannerFloor.value)||0,hard=-Math.abs(state.spotMeLimit);allocationResult.innerHTML=rows.join("")+`<hr><div class="row"><strong>Remaining after selected payments</strong><strong>${money(bal)}</strong></div><div class="status ${bal<hard?"bad":bal<floor?"warn":"good"}" style="margin-top:10px">${bal<hard?"Plan exceeds SpotMe limit.":bal<0?"Plan uses SpotMe.":bal<floor?"Plan falls below your preferred floor.":"Plan stays above your preferred floor."}</div>`}
+function plannerBalanceClass(bal,floor,hard){return bal<hard?"bad":bal<floor?"warn":"good"}
+function renderAllocationResult(){
+ let bal=Number(state.currentBalance||0)+(Number(plannerDeposit.value)||0),rows=[],lowest=bal;
+ const floor=Number(plannerFloor.value)||0,hard=-Math.abs(state.spotMeLimit);
+ const selected=plannerItems.filter(x=>x.selected).map(x=>({...x,_kind:"expense"}));
+ const incomes=plannerIncomeEvents.map(x=>({...x,_kind:"income"}));
+ const flow=[...selected,...incomes].sort((a,b)=>a.eventDate.localeCompare(b.eventDate)||(a._kind==="income"?-1:1));
+ flow.forEach(x=>{
+   const amount=Number(x._kind==="income"?x.amount:x.planAmount)||0;
+   bal+=x._kind==="income"?amount:-amount;
+   lowest=Math.min(lowest,bal);
+   const cls=plannerBalanceClass(bal,floor,hard);
+   rows.push(`<div class="row"><span>${x._kind==="income"?"💰":"💸"} ${esc(x.name)}<div class="note">${new Date(x.eventDate+"T12:00:00").toLocaleDateString()}</div></span><span>${x._kind==="income"?"+":"−"}${money(amount)} → <strong class="plan-balance ${cls}">${money(bal)}</strong></span></div>`)
+ });
+ const cls=plannerBalanceClass(lowest,floor,hard);
+ const msg=cls==="bad"?"Red: this plan exceeds your SpotMe / overdraft protection limit.":cls==="warn"?"Orange: this plan enters your safety zone below the protected floor.":"Green: this plan stays above your protected floor.";
+ allocationResult.innerHTML=(rows.join("")||'<div class="note">No selected cash-flow items in this window.</div>')+`<hr><div class="row"><strong>Ending balance</strong><strong>${money(bal)}</strong></div><div class="row"><strong>Lowest balance in window</strong><strong class="plan-balance ${cls}">${money(lowest)}</strong></div><div class="status ${cls==="bad"?"bad":cls==="warn"?"warn":"good"}" style="margin-top:10px">${msg}</div>`;
+}
 
 function rescueEligibility(e){
  if(e.direction!=="expense")return false;
@@ -1655,7 +1746,7 @@ function buildRescuePlan(){
    renderOption(`Safer fix — protect your ${money(floor)} floor`,shortfallFloor,movedFloor,sumFloor,"safe");
 }
 
-function applyPaycheckPlan(){if(!plannerItems.length)return;let selected=plannerItems.filter(x=>x.selected);if(!confirm(`Apply ${selected.length} planned allocations to the forecast? This changes occurrence amounts but does not mark them paid.`))return;selected.forEach(x=>setException(x.id,x.sourceDate,{amount:x.planAmount}));showPanel("forecast")}
+function applyPaycheckPlan(){if(!plannerItems.length)return;let selected=plannerItems.filter(x=>x.selected);if(!confirm(`Apply ${selected.length} selected allocations?\n\nThis updates the existing forecast occurrences. It does NOT create duplicate bills and does not mark anything paid.`))return;selected.forEach(x=>setException(x.id,x.sourceDate,{amount:x.planAmount}));showPanel("forecast")}
 
 function historicalLedgerEvents(days=365){
  const today=parseDate(iso(new Date()));
@@ -1711,12 +1802,6 @@ function renderTimeline(){
  }).join("");
 }
 
-function updateWindfallFromGoals(){
- let item=(state.recurring||[]).find(x=>x.windfall||x.id==="windfall");
- if(!item)return;
- item.amount=Math.max(0,Number(windfallAmount.value)||0);
- save();renderAll();
-}
 
 function addGoal(){let name=prompt("Goal name:");if(!name)return;let target=Number(prompt("Target amount:","1000"));if(!target)return;state.goals.push({id:"g"+Date.now(),name,target,saved:0});save();renderGoals()}
 function editGoal(id){let g=state.goals.find(x=>x.id===id);let saved=prompt("Current saved amount:",g.saved);if(saved!==null&&!isNaN(Number(saved))){g.saved=Math.max(0,Number(saved));save();renderGoals()}}
@@ -1913,40 +1998,52 @@ function renderBigPurchasePlanner(){
 }
 
 
+function linkedPlannerPaidAmount(kind){
+ const prefix=kind==="vacation"?"adoptedtrip_":"adoptedbig_";
+ return (state.oneTime||[]).filter(x=>String(x.id||"").startsWith(prefix)).reduce((sum,item)=>{
+  const ex=getException(item.id,item.date);
+  return sum+(["paid","reconciled"].includes(ex?.status)?occurrenceAmount(item,item.date):0);
+ },0);
+}
+function saveWindfallAllocation(){
+ state.windfallAllocation=state.windfallAllocation||{enabled:false,emergency:40,vacation:20,big:40};
+ const enabled=document.getElementById("windfallAllocationEnabled");
+ if(enabled)state.windfallAllocation.enabled=enabled.checked;
+ if(document.getElementById("windfallEmergency"))state.windfallAllocation.emergency=Math.max(0,Number(windfallEmergency.value)||0);
+ if(document.getElementById("windfallVacation"))state.windfallAllocation.vacation=Math.max(0,Number(windfallVacation.value)||0);
+ if(document.getElementById("windfallBig"))state.windfallAllocation.big=Math.max(0,Number(windfallBig.value)||0);
+ save();renderGoals();
+}
 function renderGoals(){
  syncLinkedPlannerGoals();
  const configuredWindfall=(state.recurring||[]).find(x=>x.windfall||x.id==="windfall");
- if(configuredWindfall&&document.activeElement!==windfallAmount)windfallAmount.value=Number(configuredWindfall.amount||0);
  const tripTotal=tripPlanTotalValue(),bigTotal=bigPurchasePlanTotal();
  const vacation=(state.goals||[]).find(g=>g.id==="vacation");
  const big=(state.goals||[]).find(g=>g.id==="bigitems");
- if(vacation)vacation.target=tripTotal;
- if(big)big.target=bigTotal;
-
+ if(vacation)vacation.target=tripTotal;if(big)big.target=bigTotal;
+ const tripPaid=linkedPlannerPaidAmount("vacation"),bigPaid=linkedPlannerPaidAmount("big");
  goalList.innerHTML=(state.goals||[]).map(g=>{
-  const pct=g.target?Math.min(100,Math.round((Number(g.saved||0)/Number(g.target||0))*100)):0;
-  const linked=g.id==="vacation"?"Linked to Trip Planner":g.id==="bigitems"?"Linked to Big Purchase Planner":"";
-  const adopted=g.id==="vacation"&&state.tripPlan?.adopted?" · adopted into forecast":
-                g.id==="bigitems"&&state.bigPurchasePlan?.adopted?" · adopted into forecast":"";
-  return `<div class="goal-card">
-    <div class="row">
-      <div>
-        <strong>${g.name}</strong>
-        <div class="note">${money(g.saved||0)} of ${money(g.target||0)} · ${pct}%</div>
-        ${linked?`<div class="note"><strong>${linked}${adopted}</strong></div>`:""}
-      </div>
-      <button class="secondary" onclick="editGoal('${g.id}')">Update saved</button>
-    </div>
-    <div style="height:9px;background:#e5e7eb;border-radius:99px;margin-top:9px"><div style="height:100%;width:${pct}%;background:#4f46e5;border-radius:99px"></div></div>
-  </div>`;
+  const linkedVacation=g.id==="vacation", linkedBig=g.id==="bigitems";
+  const progress=linkedVacation?tripPaid:linkedBig?bigPaid:Number(g.saved||0);
+  const pct=g.target?Math.min(100,Math.round((progress/Number(g.target||0))*100)):0;
+  const linked=linkedVacation?"Linked to Trip Planner":linkedBig?"Linked to Big Purchase Planner":"";
+  const adopted=linkedVacation&&state.tripPlan?.adopted?" · adopted into forecast":linkedBig&&state.bigPurchasePlan?.adopted?" · adopted into forecast":"";
+  const progressLabel=(linkedVacation||linkedBig)?`${money(progress)} paid of ${money(g.target||0)} · ${pct}% paid`:`${money(progress)} saved of ${money(g.target||0)} · ${pct}%`;
+  return `<div class="goal-card"><div class="row"><div><strong>${g.name}</strong><div class="note goal-progress-label">${progressLabel}</div>${linked?`<div class="note"><strong>${linked}${adopted}</strong></div>`:""}</div>${linkedVacation||linkedBig?"":`<button class="secondary" onclick="editGoal('${g.id}')">Update saved</button>`}</div><div style="height:9px;background:#e5e7eb;border-radius:99px;margin-top:9px"><div style="height:100%;width:${pct}%;background:#4f46e5;border-radius:99px"></div></div></div>`;
  }).join("");
-
  const totalGoal=(state.goals||[]).reduce((sum,g)=>sum+Number(g.target||0),0);
- const totalSaved=(state.goals||[]).reduce((sum,g)=>sum+Number(g.saved||0),0);
- if(linkedGoalSummary)linkedGoalSummary.innerHTML=`Combined goals: <strong>${money(totalGoal)}</strong> · Saved/allocated: <strong>${money(totalSaved)}</strong> · Remaining: <strong>${money(Math.max(0,totalGoal-totalSaved))}</strong>`;
-
- let total=Number(windfallAmount?.value||10000),a=Number(windfallEmergency?.value||0),b=Number(windfallVacation?.value||0),c=Number(windfallBig?.value||0),sum=a+b+c;
- windfallResult.innerHTML=`<div class="row"><span>Emergency savings</span><strong>${money(total*a/100)}</strong></div><div class="row"><span>Vacation</span><strong>${money(total*b/100)}</strong></div><div class="row"><span>Big-ticket items</span><strong>${money(total*c/100)}</strong></div><div class="status ${sum===100?"good":"warn"}" style="margin-top:10px">Allocation totals ${sum}%. ${sum===100?"Ready to use.":"Adjust percentages to equal 100%."}</div>`;
+ const totalProgress=(state.goals||[]).reduce((sum,g)=>sum+(g.id==="vacation"?tripPaid:g.id==="bigitems"?bigPaid:Number(g.saved||0)),0);
+ if(linkedGoalSummary)linkedGoalSummary.innerHTML=`Combined goals: <strong>${money(totalGoal)}</strong> · Paid/saved: <strong>${money(totalProgress)}</strong> · Remaining: <strong>${money(Math.max(0,totalGoal-totalProgress))}</strong>`;
+ state.windfallAllocation=state.windfallAllocation||{enabled:false,emergency:40,vacation:20,big:40};
+ const wa=state.windfallAllocation;
+ if(document.getElementById("windfallAllocationEnabled"))windfallAllocationEnabled.checked=!!wa.enabled;
+ if(document.activeElement!==windfallEmergency)windfallEmergency.value=wa.emergency;
+ if(document.activeElement!==windfallVacation)windfallVacation.value=wa.vacation;
+ if(document.activeElement!==windfallBig)windfallBig.value=wa.big;
+ const total=Number(configuredWindfall?.amount||0),a=Number(wa.emergency||0),b=Number(wa.vacation||0),c=Number(wa.big||0),sum=a+b+c;
+ if(windfallSourceSummary)windfallSourceSummary.innerHTML=configuredWindfall&&total>0?`Forecast windfall: <strong>${money(total)}</strong>${configuredWindfall.date?` · expected ${new Date(configuredWindfall.date+"T12:00:00").toLocaleDateString()}`:""}`:'No windfall is currently defined on Forecast. Your planners and goals still work normally.';
+ if(!wa.enabled){windfallResult.innerHTML='<div class="note">Allocation plan is off. Turn it on only if you want to divide the Forecast windfall among your goals.</div>';return}
+ windfallResult.innerHTML=`<div class="row"><span>Emergency savings</span><strong>${money(total*a/100)}</strong></div><div class="row"><span>Vacation</span><strong>${money(total*b/100)}</strong></div><div class="row"><span>Big-ticket items</span><strong>${money(total*c/100)}</strong></div><div class="status ${sum===100?"good":"warn"}" style="margin-top:10px">Allocation totals ${sum}%. ${sum===100?"Plan ready — no money moves until you actually receive and allocate it.":"Adjust percentages to equal 100%."}</div>`;
 }
 function exportData(){let blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="family-cash-flow-forcaster-backup.json";a.click()}
 function importData(ev){let f=ev.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{state=migrate(JSON.parse(r.result));save();renderAll()}catch(e){alert("That file could not be imported.")}};r.readAsText(f)}
@@ -2028,6 +2125,6 @@ renderAll();
 
 window.addEventListener("resize",closeForecastGridGap);
 </script>
-<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.25</div>
+<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.26</div>
 </body>
 </html>
