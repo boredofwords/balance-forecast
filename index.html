@@ -179,6 +179,15 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
  #forecast .forecast-ledger-card{margin-top:0 !important}
 }
 
+
+.clear-row{
+  width:38px;
+  min-width:38px;
+  padding:8px 0 !important;
+  font-weight:900;
+  font-size:16px;
+}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -737,7 +746,7 @@ function buildForecast(days=365){
  [...state.recurring,...state.oneTime].forEach(item=>{
   if(isArchived(item.id)||isPaused(item.id))return;if(item.optional&&!state.includeOptional)return;if(item.windfall&&!state.includeWindfall)return;if(item.tripPlanSource&&!state.includeTripPlan)return;if(item.bigPurchasePlanSource&&!state.includeBigPurchasePlan)return;
   occurrences(item,start,end).forEach(d=>{
-   let date=iso(d),ex=getException(item.id,date);if(ex?.status==="paid"||ex?.status==="skipped"||ex?.status==="received")return;
+   let date=iso(d),ex=getException(item.id,date);if(ex?.status==="paid"||ex?.status==="skipped"||ex?.status==="received"||ex?.status==="reconciled")return;
    if(ex?.date)date=ex.date;let amount=ex?.amount??item.amount;events.push({...item,eventDate:date,amount,sourceDate:iso(d)})
   })
  });
@@ -783,8 +792,8 @@ function renderForecast(){
  const typeCell=item&&!e.transferFromSavings&&!e.windfall?ledgerDirectionEditor(item):`<span class="pill ${e.transferFromSavings?"income":e.windfall?"windfall":e.direction}">${e.transferFromSavings?"transfer":e.windfall?"windfall":e.direction}</span>`;
  const amountCell=item?ledgerAmountEditor(item):`${e.direction==="income"?"+":"−"}${money(e.amount)}`;
  return `<tr class="${e.balance<0?"negative":e.balance<state.floor?"low":""}"><td>${new Date(e.eventDate+"T12:00:00").toLocaleDateString()}</td><td>${itemCell}${e.eventDate!==e.sourceDate?`<div class="note">Moved from ${new Date(e.sourceDate+"T12:00:00").toLocaleDateString()}${getException(e.id,e.sourceDate)?.moveReason?` · ${getException(e.id,e.sourceDate).moveReason}`:""}</div>`:""}</td><td>${typeCell}</td><td class="amount">${amountCell}</td><td class="amount"><strong>${money(e.balance)}</strong></td><td class="compact">${e.direction==="income"
- ?`<button class="success" onclick="receiveIncome('${e.id}','${e.sourceDate}')">💰 Received</button>`
- :`<button class="success" onclick="markPaid('${e.id}','${e.sourceDate}')">✅ Paid</button><button class="secondary" onclick="skipItem('${e.id}','${e.sourceDate}')">⏭ Skip</button><button class="secondary" onclick="moveDueDate('${e.id}','${e.sourceDate}')">📅 Move</button>`}</td></tr>`;
+ ?`<button class="success" onclick="receiveIncome('${e.id}','${e.sourceDate}')">💰 Received</button><button class="danger clear-row" onclick="clearForecastOccurrence('${e.id}','${e.sourceDate}')" title="Clear without changing balance">✕</button>`
+ :`<button class="success" onclick="markPaid('${e.id}','${e.sourceDate}')">✅ Paid</button><button class="secondary" onclick="skipItem('${e.id}','${e.sourceDate}')">⏭ Skip</button><button class="secondary" onclick="moveDueDate('${e.id}','${e.sourceDate}')">📅 Move</button><button class="danger clear-row" onclick="clearForecastOccurrence('${e.id}','${e.sourceDate}')" title="Clear without changing balance">✕</button>`}</td></tr>`;
 }).join("");
  includeWindfall.checked=state.includeWindfall;
  includeOptional.checked=state.includeOptional;
@@ -1067,6 +1076,30 @@ function confirmPaidAlreadyReflected(){
  if(!id)return closePaidModal();
  setException(id,sourceDate,{status:"paid",paidAt:iso(new Date()),balanceAdjusted:false});
  closePaidModal();
+ save();
+ renderAll();
+}
+
+
+function clearForecastOccurrence(id,date){
+ const item=sourceItem(id);
+ if(!item)return;
+
+ if(item.frequency==="one"){
+  if(!confirm(`Remove "${item.name}" from the forecast?\n\nThis deletes this one-time item and does not change your current balance.`))return;
+  state.oneTime=(state.oneTime||[]).filter(x=>x.id!==id);
+  state.exceptions=(state.exceptions||[]).filter(x=>x.id!==id);
+  save();
+  renderAll();
+  return;
+ }
+
+ if(!confirm(`Clear this ${item.name} occurrence from the forecast?\n\nYour current balance will NOT change. Future recurring occurrences will remain.`))return;
+ setException(id,date,{
+  status:"reconciled",
+  reconciledAt:iso(new Date()),
+  balanceAdjusted:false
+ });
  save();
  renderAll();
 }
