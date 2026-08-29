@@ -413,6 +413,90 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   margin:0;
 }
 
+
+/* FIX 44.29: real radio dots in Forecast Type */
+#forecast .cash-direction-toggle{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:flex-start !important;
+  gap:6px !important;
+  border:0 !important;
+  padding:0 !important;
+  margin:0 !important;
+  min-width:92px !important;
+}
+#forecast .cash-direction-toggle label{
+  display:flex !important;
+  align-items:center !important;
+  gap:7px !important;
+  min-height:24px !important;
+  padding:0 !important;
+  margin:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  border-radius:0 !important;
+  font-size:13px !important;
+  font-weight:700 !important;
+  line-height:1.2 !important;
+}
+#forecast .cash-direction-toggle input[type="radio"]{
+  display:inline-block !important;
+  appearance:radio !important;
+  -webkit-appearance:radio !important;
+  opacity:1 !important;
+  visibility:visible !important;
+  position:static !important;
+  width:17px !important;
+  height:17px !important;
+  min-width:17px !important;
+  min-height:17px !important;
+  max-width:17px !important;
+  max-height:17px !important;
+  padding:0 !important;
+  margin:0 !important;
+  border:initial !important;
+  border-radius:50% !important;
+  background:initial !important;
+  box-shadow:none !important;
+  accent-color:var(--accent) !important;
+  flex:0 0 17px !important;
+}
+
+/* FIX 44.29: windfall amount/date proportions */
+#forecast .forecast-scenario-card .windfall-fields,
+#forecast .forecast-scenario-card .quarterly-windfall-fields,
+#forecast .forecast-scenario-card .grid.two.windfall-fields,
+#forecast .forecast-scenario-card .grid.two.quarterly-windfall-fields{
+  display:grid !important;
+  grid-template-columns:minmax(145px, 0.75fr) minmax(0, 1.25fr) !important;
+  gap:10px !important;
+  align-items:end !important;
+}
+#forecast #scenarioWindfallAmount{
+  width:100% !important;
+  min-width:0 !important;
+  max-width:none !important;
+  box-sizing:border-box !important;
+}
+#forecast #scenarioWindfallDate{
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  box-sizing:border-box !important;
+}
+#forecast .forecast-scenario-card input[type="date"]{
+  min-width:0 !important;
+}
+@media(max-width:700px){
+  #forecast .forecast-scenario-card .windfall-fields,
+  #forecast .forecast-scenario-card .quarterly-windfall-fields,
+  #forecast .forecast-scenario-card .grid.two.windfall-fields,
+  #forecast .forecast-scenario-card .grid.two.quarterly-windfall-fields{
+    grid-template-columns:1fr !important;
+  }
+}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -2224,6 +2308,6 @@ renderAll();
 
 window.addEventListener("resize",closeForecastGridGap);
 </script>
-<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.28</div>
+<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.29</div>
 </body>
 </html>
