@@ -736,6 +736,21 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   white-space:nowrap !important;
 }
 
+
+/* FIX 44.36: recurring controls */
+.recurring-actions{
+  flex-wrap:nowrap !important;
+  white-space:nowrap;
+}
+.recurring-actions button{
+  min-height:38px !important;
+  padding:7px 10px !important;
+}
+.bill-card.archived{
+  opacity:.65;
+  background:#f8fafc;
+}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -1019,7 +1034,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 <section id="bills" class="panel">
 <div class="grid">
-<div class="card full"><div class="row"><div><h2>Bills and recurring items</h2><p class="note">Actions now work. One-occurrence changes do not alter future months unless you choose “Change recurring.”</p></div><button class="secondary" onclick="toggleArchived()">Show/hide archived</button></div><div id="billCards"></div></div>
+<div class="card full"><div class="row"><div><h2>Bills and recurring items</h2><p class="note">Active recurring items only. “End recurring” stops future occurrences immediately while keeping past Timeline history.</p></div><button type="button" id="toggleEndedRecurring" class="secondary">Show / hide ended</button></div><div id="billCards"></div></div>
 <div class="card full"><h2>Add recurring item</h2><div class="formgrid"><div><label>Item / purpose</label><input id="recName" placeholder="e.g. Loan payment"></div><div><label>Payee (optional)</label><input id="recPayee" placeholder="Only stored in your browser"></div><div><label>Amount</label><input id="recAmount" type="number" step=".01"></div><div><label>First date</label><input id="recDate" type="date"></div><div><label>Frequency</label><select id="recFrequency"><option value="monthly">Monthly</option><option value="semimonthly">Semi-monthly</option><option value="biweekly">Every 2 weeks</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></div><button class="primary" onclick="addRecurring()">Add recurring</button></div></div>
 </div>
 </section>
@@ -1424,6 +1439,7 @@ function renderAll(){
  bindForecastActions();
  bindPaidModalActions();
  bindReceivedModalActions();
+ bindRecurringActions();
  requestAnimationFrame(()=>requestAnimationFrame(closeForecastGridGap));
 }
 
@@ -2006,12 +2022,62 @@ function closeMoveModal(event){
 }
 function changeRecurring(id){let item=state.recurring.find(x=>x.id===id);if(!item)return;let a=prompt("New recurring amount:",item.amount);if(a===null)return;let d=prompt("New recurring first/next date (YYYY-MM-DD):",item.date);if(!d)return;let f=prompt("Frequency: monthly, semimonthly, biweekly, quarterly, annual, or one",item.frequency);if(!["monthly","semimonthly","biweekly","quarterly","annual","one"].includes(f))return alert("Frequency not recognized.");item.amount=Math.abs(Number(a));item.date=d;item.frequency=f;save();renderAll()}
 function pauseRecurring(id){if(state.paused.includes(id))state.paused=state.paused.filter(x=>x!==id);else state.paused.push(id);save();renderAll()}
-function archiveRecurring(id){if(confirm("Archive this recurring item? History is preserved and you can restore it later.")){if(!state.archived.includes(id))state.archived.push(id);save();renderAll()}}
+function archiveRecurring(id){
+ const item=state.recurring.find(x=>x.id===id);
+ if(!item)return;
+ if(!confirm(`End "${item.name}" as a recurring item?\n\nIt will stop appearing in future Forecast and Bills. Past Timeline history is preserved, and you can restore it later.`))return;
+ if(!state.archived.includes(id))state.archived.push(id);
+ state.paused=state.paused.filter(x=>x!==id);
+ save();
+ renderAll();
+ if(document.querySelector("#bills.panel.active"))renderBills();
+}
 function restoreRecurring(id){state.archived=state.archived.filter(x=>x!==id);save();renderAll()}
 let showArchived=false;function toggleArchived(){showArchived=!showArchived;renderBills()}
 function renderBills(){
- billCards.innerHTML=state.recurring.filter(x=>showArchived||!isArchived(x.id)).map(r=>`<div class="bill-card ${isArchived(r.id)?"archived":""}"><div class="row"><div style="min-width:0;flex:1"><strong>${esc(r.name)}</strong><div class="note">${r.date} · ${r.frequency} · ${money(r.amount)} · <span class="pill ${r.priority}">${r.priority}</span>${r.optional?" · optional":""}</div>${payeeEditor(r)}</div><div class="button-row compact">${isArchived(r.id)?`<button class="success" onclick="restoreRecurring('${r.id}')">Restore</button>`:`<button class="secondary" onclick="changeRecurring('${r.id}')">🔁 Change recurring</button><button class="secondary" onclick="pauseRecurring('${r.id}')">${isPaused(r.id)?"▶ Resume":"💤 Pause"}</button><button class="danger" onclick="archiveRecurring('${r.id}')">🗑 Archive</button>`}</div></div></div>`).join("")
+ const rows=state.recurring.filter(x=>showArchived||!isArchived(x.id));
+ billCards.innerHTML=rows.length?rows.map(r=>`<div class="bill-card ${isArchived(r.id)?"archived":""}">
+  <div class="row">
+   <div style="min-width:0;flex:1">
+    <strong>${esc(r.name)}</strong>
+    <div class="note">${r.date} · ${r.frequency} · ${money(r.amount)} · <span class="pill ${r.priority}">${r.priority}</span>${r.optional?" · optional":""}${isArchived(r.id)?" · ended":""}</div>
+    ${payeeEditor(r)}
+   </div>
+   <div class="button-row compact recurring-actions">
+    ${isArchived(r.id)
+      ?`<button type="button" class="success recurring-action" data-action="restore" data-id="${esc(r.id)}">↩ Restore</button>`
+      :`<button type="button" class="secondary recurring-action" data-action="change" data-id="${esc(r.id)}">🔁 Change</button>
+        <button type="button" class="secondary recurring-action" data-action="pause" data-id="${esc(r.id)}">${isPaused(r.id)?"▶ Resume":"💤 Pause"}</button>
+        <button type="button" class="danger recurring-action" data-action="end" data-id="${esc(r.id)}">🛑 End recurring</button>`}
+   </div>
+  </div>
+ </div>`).join("")
+ :`<div class="note">No active recurring items.${showArchived?"":" Ended items are hidden unless you choose to show them."}</div>`;
 }
+
+let recurringActionsBound=false;
+function bindRecurringActions(){
+ if(recurringActionsBound)return;
+ const host=document.getElementById("billCards");
+ if(!host)return;
+ host.addEventListener("click",event=>{
+  const button=event.target.closest("button.recurring-action");
+  if(!button||!host.contains(button))return;
+  event.preventDefault();
+  event.stopPropagation();
+  const id=button.dataset.id;
+  const action=button.dataset.action;
+  if(!id)return;
+  if(action==="change")return changeRecurring(id);
+  if(action==="pause")return pauseRecurring(id);
+  if(action==="end")return archiveRecurring(id);
+  if(action==="restore")return restoreRecurring(id);
+ });
+ const toggle=document.getElementById("toggleEndedRecurring");
+ if(toggle)toggle.addEventListener("click",toggleArchived);
+ recurringActionsBound=true;
+}
+
 function nextPayDateAfter(date){let d=parseDate(date);return iso(state.paySchedule==="semi"?nextSemi(d):new Date(d.getTime()+14*864e5))}
 function initPlannerDefaults(){
  let events=buildForecast(),pay=events.find(e=>e.direction==="income"&&!e.windfall&&(e.id==="pay"||e.name===state.incomeName||e.name==="Paycheck"));
@@ -2563,6 +2629,6 @@ renderAll();
 
 window.addEventListener("resize",closeForecastGridGap);
 </script>
-<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.35</div>
+<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.36</div>
 </body>
 </html>
