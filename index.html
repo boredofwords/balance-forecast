@@ -1026,9 +1026,10 @@ function ledgerAmountEditor(item){
 function ledgerDirectionEditor(item){
  if(!item)return "";
  const id=esc(item.id);
+ const direction=item.direction==="income"?"income":"expense";
  return `<fieldset class="cash-direction-toggle" aria-label="Cash flow direction for ${esc(item.name||"item")}">
-  <label class="cash-out"><input type="radio" name="dir_${id}" value="expense" ${item.direction==="expense"?"checked":""} onchange="updateLedgerField('${id}','direction','expense')"><span>💸 Out</span></label>
-  <label class="cash-in"><input type="radio" name="dir_${id}" value="income" ${item.direction==="income"?"checked":""} onchange="updateLedgerField('${id}','direction','income')"><span>💰 In</span></label>
+  <label class="cash-out"><input type="radio" name="dir_${id}" value="expense" ${direction==="expense"?"checked":""} onchange="updateLedgerField('${id}','direction','expense')"><span>💸 Out</span></label>
+  <label class="cash-in"><input type="radio" name="dir_${id}" value="income" ${direction==="income"?"checked":""} onchange="updateLedgerField('${id}','direction','income')"><span>💰 In</span></label>
  </fieldset>`;
 }
 function payeeEditor(item,compact=false){
@@ -1044,6 +1045,14 @@ function migrate(s){
  s=s||clone(BASELINE);
  s.oneTime=s.oneTime||[];
  s.recurring=s.recurring||[];
+ s.recurring.forEach(x=>{
+  if(x.windfall||x.id==="pay"||x.category==="Income")x.direction="income";
+  else if(x.direction!=="income"&&x.direction!=="expense")x.direction="expense";
+ });
+ s.oneTime.forEach(x=>{
+  if(x.direction!=="income"&&x.direction!=="expense")x.direction="expense";
+ });
+
  s.exceptions=s.exceptions||[];
  s.archived=s.archived||[];
  s.paused=s.paused||[];
@@ -2308,6 +2317,6 @@ renderAll();
 
 window.addEventListener("resize",closeForecastGridGap);
 </script>
-<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.29</div>
+<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.30</div>
 </body>
 </html>
