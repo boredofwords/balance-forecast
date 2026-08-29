@@ -206,6 +206,41 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   }
 }
 
+
+/* Windfall definition: amount gets room for 5+ digits; date stays compact */
+#forecast .windfall-fields,
+#forecast .quarterly-windfall-fields{
+  display:grid;
+  grid-template-columns:minmax(150px, 0.85fr) minmax(185px, 1.15fr);
+  gap:12px;
+  align-items:end;
+}
+#forecast input[id*="windfall" i][type="number"]{
+  width:100% !important;
+  min-width:150px !important;
+}
+#forecast input[id*="windfall" i][type="date"]{
+  width:100% !important;
+  min-width:0 !important;
+}
+@media(max-width:600px){
+  #forecast .windfall-fields,
+  #forecast .quarterly-windfall-fields{
+    grid-template-columns:1fr;
+  }
+}
+
+
+.planning-explainer{
+  margin:0 0 18px;
+  padding:16px 18px;
+  border:1px solid #dfe3ea;
+  border-radius:16px;
+  background:#f8f9fc;
+}
+.planning-explainer strong{display:block;margin-bottom:6px;font-size:1.05rem}
+.planning-explainer p{margin:0;color:#667085;line-height:1.5}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -350,7 +385,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 <section id="paycheck" class="panel">
 <div class="grid">
 <div class="card full"><div class="row"><div><h2>Paycheck Planner</h2><p class="note">This creates a proposed allocation only. Nothing is marked paid until you apply the plan.</p></div><button class="primary" onclick="buildPaycheckPlan()">Build plan</button></div>
-<div class="settingsgrid"><div><label>Paycheck date</label><input id="plannerDate" type="date" onchange="buildPaycheckPlan()"></div><div><label>Expected deposit</label><input id="plannerDeposit" type="number" step=".01" onchange="updatePaycheckFromPlanner()"></div><div><label>Next paycheck date</label><input id="plannerNextDate" type="date" onchange="buildPaycheckPlan()"></div><div><label>Protected floor</label><input id="plannerFloor" type="number" step="25" onchange="buildPaycheckPlan()"></div></div></div>
+<div class="settingsgrid"><div><label>Paycheck date</label><input id="plannerDate" type="date" onchange="buildPaycheckPlan()"></div><div><label>Expected deposit</label><input id="plannerDeposit" type="number" step=".01" onchange="updatePaycheckFromPlanner()"></div><div><label>Next paycheck date</label><input id="plannerNextDate" type="date" onchange="buildPaycheckPlan()"></div><div><label>Protected floor</label><input id="plannerFloor" type="number" step="25" onchange="updateFloorFromPlanner()"></div></div></div>
 <div class="card half summary-box"><h2>Paycheck summary</h2><div id="plannerSummary"></div></div>
 <div class="card half"><div class="row"><h2>Suggested allocations</h2><button class="success" onclick="applyPaycheckPlan()">Apply selected plan</button></div><div id="allocationList"></div></div>
 <div class="card full"><h2>Allocation result</h2><div id="allocationResult" class="note">Build a plan to see the projected balance after each selected payment.</div></div>
@@ -438,7 +473,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   <div class="card full">
     <div class="row">
       <div>
-        <h2>Big Purchase Planner</h2>
+        <h2>Big Purchase Planner</h2><p class="muted planner-link-note">Your plan total automatically becomes the linked Big-ticket purchase goal.</p>
         <p class="note">Plan furniture, appliances, repairs, electronics, or other larger household needs here first. The linked goal updates while you plan; the forecast changes only after you adopt the plan.</p>
       </div>
       <span class="pill windfall">PLANNING SANDBOX</span>
@@ -486,7 +521,12 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 
 <section id="timeline" class="panel"><div class="card"><div class="row"><div><h2>Timeline</h2><p class="note">Your most practical view: the reconciled balance, then every projected deposit and payment in order.</p></div><select id="timelineRange" style="width:auto" onchange="renderTimeline()"><option value="30">30 days</option><option value="60">60 days</option><option value="90" selected>90 days</option></select></div><div id="timelineList"></div></div></section>
 
-<section id="goals" class="panel"><div class="grid"><div class="card full"><div class="row"><div><h2>Goals</h2><p class="note">Vacation and big-purchase goal totals stay synced to their planners automatically. Update only what you have actually saved or allocated.</p></div><button class="primary" onclick="addGoal()">Add goal</button></div><div id="linkedGoalSummary" class="goal-summary"></div><div class="button-row" style="margin:12px 0"><button class="secondary" onclick="showPanel('trip')">Open Trip Planner</button><button class="secondary" onclick="showPanel('bigpurchase')">Open Big Purchase Planner</button></div><div id="goalList"></div></div><div class="card full"><h2>Quarterly windfall planner</h2><div class="settingsgrid"><div><label>Expected windfall</label><input id="windfallAmount" type="number" value="10000" onchange="updateWindfallFromGoals()" oninput="renderGoals()"></div><div><label>Emergency savings %</label><input id="windfallEmergency" type="number" value="40" oninput="renderGoals()"></div><div><label>Vacation %</label><input id="windfallVacation" type="number" value="20" oninput="renderGoals()"></div><div><label>Big-ticket items %</label><input id="windfallBig" type="number" value="40" oninput="renderGoals()"></div></div><div id="windfallResult" style="margin-top:12px"></div></div></div></section>
+<section id="goals" class="panel">
+<div class="planning-explainer">
+  <strong>How planning works</strong>
+  <p>Build your Vacation / Trip and Big Purchase plans first — those planner totals automatically become your linked goals. If you expect a bonus or other windfall, define it on the Forecast page. Then use Goals to optionally decide how much of that windfall you want to put toward each goal. You do not need a windfall to use the planners or goals.</p>
+</div>
+<div class="grid"><div class="card full"><div class="row"><div><h2>Goals</h2><p class="note">Vacation and big-purchase goal totals stay synced to their planners automatically. Update only what you have actually saved or allocated.</p></div><button class="primary" onclick="addGoal()">Add goal</button></div><div id="linkedGoalSummary" class="goal-summary"></div><div class="button-row" style="margin:12px 0"><button class="secondary" onclick="showPanel('trip')">Open Trip Planner</button><button class="secondary" onclick="showPanel('bigpurchase')">Open Big Purchase Planner</button></div><div id="goalList"></div></div><div class="card full"><h2>Windfall allocation</h2><p class="muted">Optional — use this only if you expect extra income you want to allocate. The windfall amount and date are defined on the Forecast page; this section only decides how to divide it among your goals.</p><div class="settingsgrid"><div><label>Expected windfall</label><input id="windfallAmount" type="number" value="10000" onchange="updateWindfallFromGoals()" oninput="renderGoals()"></div><div><label>Emergency savings %</label><input id="windfallEmergency" type="number" value="40" oninput="renderGoals()"></div><div><label>Vacation %</label><input id="windfallVacation" type="number" value="20" oninput="renderGoals()"></div><div><label>Big-ticket items %</label><input id="windfallBig" type="number" value="40" oninput="renderGoals()"></div></div><div id="windfallResult" style="margin-top:12px"></div></div></div></section>
 
 <section id="settings" class="panel"><div class="grid"><div class="card full"><h2>Core settings</h2><div class="settingsgrid"><div><label>Current checking balance</label><input id="settingBalance" type="number" step=".01" onchange="saveSettings()"></div><div><label>Current savings balance</label><input id="settingSavings" type="number" step=".01" onchange="saveSettings()"></div><div><label>Income name</label><input id="settingIncomeName" type="text" onchange="saveSettings()"></div><div><label>Regular paycheck</label><input id="settingPaycheck" type="number" step=".01" onchange="saveSettings()"></div><div><label>Pay schedule</label><select id="settingPaySchedule" onchange="saveSettings()"><option value="semi">15th & month-end</option><option value="biweekly">Every 2 weeks</option></select></div><div><label>Balance as-of date</label><input id="settingBalanceAsOf" type="date" onchange="saveSettings()"></div><div><label>Original plan start</label><input id="settingStart" type="date" onchange="saveSettings()"></div></div><p class="note">Everything is stored in this browser. Export a backup before clearing browser data or moving devices.</p></div></div>
 <div class="card full" style="margin-top:12px">
@@ -789,6 +829,7 @@ function closeForecastGridGap(){
 }
 
 function renderAll(){
+ setProtectedFloor(state.floor);
  renderForecast();renderBills();renderTimeline();renderGoals();renderTripPlanner();renderBigPurchasePlanner();initPlannerDefaults();
  requestAnimationFrame(()=>requestAnimationFrame(closeForecastGridGap));
 }
@@ -817,7 +858,7 @@ function renderForecast(){
  includeOptional.checked=state.includeOptional;
  includeTripPlan.checked=state.includeTripPlan!==false;
  includeBigPurchasePlan.checked=state.includeBigPurchasePlan!==false;
- floorInput.value=state.floor;spotMeInput.value=state.spotMeLimit;
+ floorInput.value=Number(state.floor||0);spotMeInput.value=state.spotMeLimit;
  const windfallItem=(state.recurring||[]).find(x=>x.windfall||x.id==="windfall");
  if(windfallItem){
   if(document.activeElement!==scenarioWindfallName)scenarioWindfallName.value=windfallItem.name||"Quarterly bonus / windfall";
@@ -923,6 +964,27 @@ function syncRegularPaycheckSource(){
  }
 }
 
+
+function setProtectedFloor(value){
+ const n=Math.max(0,Number(value)||0);
+ state.floor=n;
+ if(document.getElementById("plannerFloor")&&document.activeElement!==plannerFloor)plannerFloor.value=n;
+ if(document.getElementById("floorInput")&&document.activeElement!==floorInput)floorInput.value=n;
+ if(document.getElementById("settingFloor")&&document.activeElement!==settingFloor)settingFloor.value=n;
+ return n;
+}
+function updateFloorFromPlanner(){
+ const n=Number(plannerFloor.value);
+ if(!Number.isFinite(n)||n<0){
+  plannerFloor.value=Number(state.floor||0);
+  return alert("Enter a valid protected floor.");
+ }
+ setProtectedFloor(n);
+ save();
+ renderAll();
+ buildPaycheckPlan();
+}
+
 function updatePaycheckFromPlanner(){
  const amount=Number(plannerDeposit.value);
  if(!Number.isFinite(amount)||amount<0)return alert("Enter a valid paycheck amount.");
@@ -1014,7 +1076,7 @@ function saveScenario(){
  state.includeOptional=includeOptional.checked;
  state.includeTripPlan=includeTripPlan.checked;
  state.includeBigPurchasePlan=includeBigPurchasePlan.checked;
- state.floor=Number(floorInput.value)||0;
+ setProtectedFloor(Number(floorInput.value)||0);
  state.spotMeLimit=Math.abs(Number(spotMeInput.value)||0);
  save();renderAll();
 }
@@ -1204,12 +1266,12 @@ function initPlannerDefaults(){
  if(pay&&!plannerDate.value)plannerDate.value=pay.eventDate;
  plannerDeposit.value=Number(state.paycheck||pay?.amount||0).toFixed(2);
  if(pay&&!plannerNextDate.value)plannerNextDate.value=nextPayDateAfter(pay.eventDate);
- if(!plannerFloor.value)plannerFloor.value=state.floor;
+ plannerFloor.value=Number(state.floor||0);
 }
 function priorityRank(p){return {critical:0,high:1,medium:2,flexible:3}[p]??2}
 let plannerItems=[];
 function buildPaycheckPlan(){
- if(!plannerDate.value)initPlannerDefaults();let pd=plannerDate.value||state.startDate,nd=plannerNextDate.value||nextPayDateAfter(pd),deposit=Number(state.paycheck)||0,floor=Number(plannerFloor.value)||state.floor;plannerDeposit.value=deposit.toFixed(2);
+ if(!plannerDate.value)initPlannerDefaults();let pd=plannerDate.value||state.startDate,nd=plannerNextDate.value||nextPayDateAfter(pd),deposit=Number(state.paycheck)||0,floor=Number(state.floor)||0;plannerFloor.value=floor;plannerDeposit.value=deposit.toFixed(2);
  let start=parseDate(pd),end=parseDate(nd),events=buildForecast().filter(e=>e.direction==="expense"&&parseDate(e.eventDate)>=start&&parseDate(e.eventDate)<end);
  plannerItems=events.sort((a,b)=>priorityRank(a.priority)-priorityRank(b.priority)||a.eventDate.localeCompare(b.eventDate)).map((e,i)=>({...e,selected:e.priority!=="flexible",planAmount:e.amount,planId:"p"+i}));
  plannerSummary.innerHTML=`<div><strong>Starting balance:</strong> ${money(state.currentBalance)}</div><div><strong>Expected deposit:</strong> ${money(deposit)}</div><div><strong>Available after deposit:</strong> ${money(state.currentBalance+deposit)}</div><div><strong>Protected floor:</strong> ${money(floor)}</div>`;
