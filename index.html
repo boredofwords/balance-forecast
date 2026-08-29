@@ -876,8 +876,56 @@ function closeForecastGridGap(){
 function renderAll(){
  setProtectedFloor(state.floor);
  renderForecast();renderBills();renderTimeline();renderGoals();renderTripPlanner();renderBigPurchasePlanner();initPlannerDefaults();
+ bindForecastActions();
+ bindPaidModalActions();
  requestAnimationFrame(()=>requestAnimationFrame(closeForecastGridGap));
 }
+
+let forecastActionsBound=false;
+function bindForecastActions(){
+ if(forecastActionsBound)return;
+ const body=document.getElementById("ledgerBody");
+ if(!body)return;
+ body.addEventListener("click",function(event){
+  const button=event.target.closest("button.forecast-action");
+  if(!button||!body.contains(button))return;
+  event.preventDefault();
+  event.stopPropagation();
+  const id=button.dataset.id;
+  const date=button.dataset.date;
+  const action=button.dataset.action;
+  if(!id||!date)return;
+  if(action==="paid")return markPaid(id,date);
+  if(action==="received")return receiveIncome(id,date);
+  if(action==="skip")return skipItem(id,date);
+  if(action==="move")return moveDueDate(id,date);
+  if(action==="clear")return clearForecastOccurrence(id,date);
+ });
+ forecastActionsBound=true;
+}
+
+
+function bindPaidModalActions(){
+ const modal=document.getElementById("paidModal");
+ if(!modal||modal.dataset.bound==="1")return;
+ const buttons=modal.querySelectorAll("button");
+ buttons.forEach(btn=>{
+  const text=(btn.textContent||"").trim();
+  if(text.startsWith("Paid & subtract")){
+   btn.removeAttribute("onclick");
+   btn.addEventListener("click",confirmPaidAndSubtract);
+  }else if(text.startsWith("Already reflected")){
+   btn.removeAttribute("onclick");
+   btn.addEventListener("click",confirmPaidAlreadyReflected);
+  }else if(btn.classList.contains("modal-close")){
+   btn.removeAttribute("onclick");
+   btn.addEventListener("click",closePaidModal);
+  }
+ });
+ modal.addEventListener("click",e=>{if(e.target===modal)closePaidModal()});
+ modal.dataset.bound="1";
+}
+
 function renderForecast(){
  syncBalanceInputs();
  const events=buildForecast(),range=Number(document.getElementById("rangeSelect")?.value||90),visible=events.filter(e=>(parseDate(e.eventDate)-parseDate(state.balanceAsOf||state.startDate))/864e5<=range),balances=[state.currentBalance,...visible.map(e=>e.balance)],low=Math.min(...balances),lowEvent=visible.find(e=>e.balance===low),nextPay=events.find(e=>e.id==="pay"&&e.direction==="income"&&!e.windfall);
@@ -896,8 +944,8 @@ function renderForecast(){
  const typeCell=item&&!e.transferFromSavings&&!e.windfall?ledgerDirectionEditor(item):`<span class="pill ${e.transferFromSavings?"income":e.windfall?"windfall":e.direction}">${e.transferFromSavings?"transfer":e.windfall?"windfall":e.direction}</span>`;
  const amountCell=item?ledgerAmountEditor(item):`${e.direction==="income"?"+":"−"}${money(e.amount)}`;
  return `<tr class="${e.balance<0?"negative":e.balance<state.floor?"low":""}"><td>${new Date(e.eventDate+"T12:00:00").toLocaleDateString()}</td><td>${itemCell}${e.eventDate!==e.sourceDate?`<div class="note">Moved from ${new Date(e.sourceDate+"T12:00:00").toLocaleDateString()}${getException(e.id,e.sourceDate)?.moveReason?` · ${getException(e.id,e.sourceDate).moveReason}`:""}</div>`:""}</td><td>${typeCell}</td><td class="amount">${amountCell}</td><td class="amount"><strong>${money(e.balance)}</strong></td><td class="compact">${e.direction==="income"
- ?`<button class="success" onclick="receiveIncome('${e.id}','${e.sourceDate}')">💰 Received</button><button class="danger clear-row" onclick="clearForecastOccurrence('${e.id}','${e.sourceDate}')" title="Clear without changing balance">✕</button>`
- :`<button class="success" onclick="markPaid('${e.id}','${e.sourceDate}')">✅ Paid</button><button class="secondary" onclick="skipItem('${e.id}','${e.sourceDate}')">⏭ Skip</button><button class="secondary" onclick="moveDueDate('${e.id}','${e.sourceDate}')">📅 Move</button><button class="danger clear-row" onclick="clearForecastOccurrence('${e.id}','${e.sourceDate}')" title="Clear without changing balance">✕</button>`}</td></tr>`;
+ ?`<button type="button" class="success forecast-action" data-action="received" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">💰 Received</button><button type="button" class="danger clear-row forecast-action" data-action="clear" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}" title="Clear without changing balance">✕</button>`
+ :`<button type="button" class="success forecast-action" data-action="paid" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">✅ Paid</button><button type="button" class="secondary forecast-action" data-action="skip" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">⏭ Skip</button><button type="button" class="secondary forecast-action" data-action="move" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">📅 Move</button><button type="button" class="danger clear-row forecast-action" data-action="clear" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}" title="Clear without changing balance">✕</button>`}</td></tr>`;
 }).join("");
  includeWindfall.checked=state.includeWindfall;
  includeOptional.checked=state.includeOptional;
