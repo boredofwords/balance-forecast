@@ -188,6 +188,24 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   font-size:16px;
 }
 
+
+/* Keep the Quarterly Windfall amount readable */
+#forecast input[id*="windfall" i][type="number"]{
+  width:100% !important;
+  min-width:145px !important;
+  box-sizing:border-box;
+}
+#forecast .forecast-scenario-card .grid.two,
+#forecast .scenario-card .grid.two{
+  grid-template-columns:minmax(145px,.85fr) minmax(210px,1.15fr);
+}
+@media(max-width:600px){
+  #forecast .forecast-scenario-card .grid.two,
+  #forecast .scenario-card .grid.two{
+    grid-template-columns:1fr;
+  }
+}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
