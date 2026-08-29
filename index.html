@@ -497,6 +497,60 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   }
 }
 
+
+/* FIX 44.31: Quick Add uses compact native radio dots */
+#forecast .quick-direction{
+  display:flex !important;
+  align-items:center !important;
+  gap:16px !important;
+  min-height:44px !important;
+  padding:0 !important;
+  border:0 !important;
+  background:transparent !important;
+}
+#forecast .quick-direction label{
+  display:flex !important;
+  align-items:center !important;
+  gap:6px !important;
+  width:auto !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  padding:0 !important;
+  margin:0 !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  font-size:14px !important;
+  font-weight:700 !important;
+  line-height:1.2 !important;
+  cursor:pointer;
+}
+#forecast .quick-direction input[type="radio"]{
+  display:inline-block !important;
+  appearance:radio !important;
+  -webkit-appearance:radio !important;
+  opacity:1 !important;
+  visibility:visible !important;
+  position:static !important;
+  width:17px !important;
+  height:17px !important;
+  min-width:17px !important;
+  min-height:17px !important;
+  max-width:17px !important;
+  max-height:17px !important;
+  padding:0 !important;
+  margin:0 !important;
+  border:initial !important;
+  border-radius:50% !important;
+  background:initial !important;
+  box-shadow:none !important;
+  accent-color:var(--accent) !important;
+  flex:0 0 17px !important;
+}
+#forecast .quick-direction .out{color:var(--bad) !important}
+#forecast .quick-direction .in{color:var(--good) !important}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -2317,6 +2371,6 @@ renderAll();
 
 window.addEventListener("resize",closeForecastGridGap);
 </script>
-<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.30</div>
+<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.31</div>
 </body>
 </html>
