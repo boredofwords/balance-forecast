@@ -286,6 +286,18 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   .paid-choice-grid{grid-template-columns:1fr}
 }
 
+
+
+.balance-action-note{
+  min-height:18px;
+  margin-top:6px;
+  font-size:12px;
+  font-weight:700;
+}
+.balance-action-note.income{color:var(--good)}
+.balance-action-note.expense{color:var(--bad)}
+.balance-action-note.neutral{color:var(--muted)}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -323,12 +335,12 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 <div id="statusBox"></div>
 <div class="grid">
 <div class="card metric">
-  <div class="label">Current checking</div>
+  <div class="label">Available checking</div>
   <div class="inline-balance-editor editable-metric">
     <span class="inline-balance-currency">$</span>
     <input id="currentBalanceInline" class="inline-balance-input" type="number" step=".01" inputmode="decimal" aria-label="Current checking balance" onchange="reconcileCurrentCheckingInline()" onkeydown="if(event.key==='Enter'){this.blur()}">
   </div>
-  <div class="sub">Tap the balance to type your actual checking total.</div>
+  <div class="sub">Available now · Paid and Received actions update this automatically.</div><div id="balanceActionNote" class="balance-action-note" aria-live="polite"></div>
 </div>
 <div class="card metric">
   <div class="label">Savings</div>
@@ -564,7 +576,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 </div>
 </section>
 
-<section id="timeline" class="panel"><div class="card"><div class="row"><div><h2>Timeline</h2><p class="note">Your most practical view: the reconciled balance, then every projected deposit and payment in order.</p></div><select id="timelineRange" style="width:auto" onchange="renderTimeline()"><option value="30">30 days</option><option value="60">60 days</option><option value="90" selected>90 days</option></select></div><div id="timelineList"></div></div></section>
+<section id="timeline" class="panel"><div class="card"><div class="row"><div><h2>Timeline</h2><p class="note">Your historical ledger. Once something is Paid, Received, or Reconciled, it leaves Forecast and is recorded here.</p><p class="note">Your most practical view: the reconciled balance, then every projected deposit and payment in order.</p></div><select id="timelineRange" style="width:auto" onchange="renderTimeline()"><option value="30">30 days</option><option value="60">60 days</option><option value="90" selected>90 days</option></select></div><div id="timelineList"></div></div></section>
 
 <section id="goals" class="panel">
 <div class="planning-explainer">
@@ -650,6 +662,32 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
       <button type="button" class="secondary" onclick="confirmPaidAlreadyReflected()">
         Already reflected
         <span>Remove this occurrence without changing checking.</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<div id="receivedModal" class="app-modal" role="dialog" aria-modal="true" aria-labelledby="receivedModalTitle">
+  <div class="app-modal-card">
+    <div class="row">
+      <div>
+        <h2 id="receivedModalTitle">Receive income</h2>
+        <div id="receivedModalDescription" class="note"></div>
+      </div>
+      <button type="button" class="secondary received-modal-close" aria-label="Close">✕</button>
+    </div>
+    <p class="note" style="margin-top:12px">
+      Add this deposit to your available checking balance, or record it without changing checking if your balance already includes it.
+    </p>
+    <div class="paid-choice-grid">
+      <button type="button" class="success received-add">
+        Receive &amp; add
+        <span>Add this income to available checking now.</span>
+      </button>
+      <button type="button" class="secondary received-reflected">
+        Already reflected
+        <span>Record it as received without changing checking.</span>
       </button>
     </div>
   </div>
@@ -862,12 +900,20 @@ function nextSemi(d){if(d.getDate()===15)return endOfMonth(d);if(d.getDate()===e
 function occurrenceKey(id,date){return id+"@"+date}
 function isArchived(id){return state.archived.includes(id)} function isPaused(id){return state.paused.includes(id)}
 function getException(id,date){return state.exceptions.find(x=>x.key===occurrenceKey(id,date))}
+function occurrenceAmount(item,date){
+ if(!item)return 0;
+ const ex=getException(item.id,date);
+ const value=Number(ex?.amount ?? item.amount ?? 0);
+ return Number.isFinite(value)?Math.abs(value):0;
+}
 function occurrences(item,start,end){
  let dates=[],d=parseDate(item.date);if(item.frequency==="one"){if(d>=start&&d<=end)dates.push(d);return dates}
  while(d<start){if(item.frequency==="monthly")d=addMonths(d,1);else if(item.frequency==="quarterly")d=addMonths(d,3);else if(item.frequency==="annual")d=addMonths(d,12);else if(item.frequency==="biweekly")d=new Date(d.getTime()+14*864e5);else if(item.frequency==="semimonthly")d=nextSemi(d);else break}
  while(d<=end){dates.push(new Date(d));if(item.frequency==="monthly")d=addMonths(d,1);else if(item.frequency==="quarterly")d=addMonths(d,3);else if(item.frequency==="annual")d=addMonths(d,12);else if(item.frequency==="biweekly")d=new Date(d.getTime()+14*864e5);else if(item.frequency==="semimonthly")d=nextSemi(d);else break}
  return dates
 }
+
+
 function buildForecast(days=365){
  syncRegularPaycheckSource();
  const start=parseDate(state.balanceAsOf||state.startDate),end=new Date(start.getTime()+days*864e5),events=[];
@@ -903,6 +949,7 @@ function renderAll(){
  renderForecast();renderBills();renderTimeline();renderGoals();renderTripPlanner();renderBigPurchasePlanner();initPlannerDefaults();
  bindForecastActions();
  bindPaidModalActions();
+ bindReceivedModalActions();
  requestAnimationFrame(()=>requestAnimationFrame(closeForecastGridGap));
 }
 
@@ -930,6 +977,20 @@ function bindForecastActions(){
 }
 
 
+
+function bindReceivedModalActions(){
+ const modal=document.getElementById("receivedModal");
+ if(!modal||modal.dataset.bound==="1")return;
+ const close=modal.querySelector(".received-modal-close");
+ const add=modal.querySelector(".received-add");
+ const reflected=modal.querySelector(".received-reflected");
+ if(close)close.addEventListener("click",closeReceivedModal);
+ if(add)add.addEventListener("click",confirmReceivedAndAdd);
+ if(reflected)reflected.addEventListener("click",confirmReceivedAlreadyReflected);
+ modal.addEventListener("click",e=>{if(e.target===modal)closeReceivedModal()});
+ modal.dataset.bound="1";
+}
+
 function bindPaidModalActions(){
  const modal=document.getElementById("paidModal");
  if(!modal||modal.dataset.bound==="1")return;
@@ -953,7 +1014,14 @@ function bindPaidModalActions(){
 
 function renderForecast(){
  syncBalanceInputs();
- const events=buildForecast(),range=Number(document.getElementById("rangeSelect")?.value||90),visible=events.filter(e=>(parseDate(e.eventDate)-parseDate(state.balanceAsOf||state.startDate))/864e5<=range),balances=[state.currentBalance,...visible.map(e=>e.balance)],low=Math.min(...balances),lowEvent=visible.find(e=>e.balance===low),nextPay=events.find(e=>e.id==="pay"&&e.direction==="income"&&!e.windfall);
+ const events=buildForecast();
+ const range=Number(document.getElementById("rangeSelect")?.value||90);
+ const startDate=parseDate(state.balanceAsOf||state.startDate);
+ const visible=events.filter(e=>(parseDate(e.eventDate)-startDate)/864e5<=range);
+ const balances=[state.currentBalance,...visible.map(e=>e.balance)];
+ const low=Math.min(...balances);
+ const lowEvent=visible.find(e=>e.balance===low);
+ const nextPay=events.find(e=>e.id==="pay"&&e.direction==="income"&&!e.windfall);
  if(document.activeElement!==currentBalanceInline)currentBalanceInline.value=Number(state.currentBalance||0).toFixed(2);
  if(document.activeElement!==savingsBalanceInline)savingsBalanceInline.value=Number(state.savingsBalance||0).toFixed(2);
  if(document.activeElement!==nextPaycheckInline)nextPaycheckInline.value=Number(state.paycheck||0).toFixed(2);
@@ -969,8 +1037,8 @@ function renderForecast(){
  const typeCell=item&&!e.transferFromSavings&&!e.windfall?ledgerDirectionEditor(item):`<span class="pill ${e.transferFromSavings?"income":e.windfall?"windfall":e.direction}">${e.transferFromSavings?"transfer":e.windfall?"windfall":e.direction}</span>`;
  const amountCell=item?ledgerAmountEditor(item):`${e.direction==="income"?"+":"−"}${money(e.amount)}`;
  return `<tr class="${e.balance<0?"negative":e.balance<state.floor?"low":""}"><td>${new Date(e.eventDate+"T12:00:00").toLocaleDateString()}</td><td>${itemCell}${e.eventDate!==e.sourceDate?`<div class="note">Moved from ${new Date(e.sourceDate+"T12:00:00").toLocaleDateString()}${getException(e.id,e.sourceDate)?.moveReason?` · ${getException(e.id,e.sourceDate).moveReason}`:""}</div>`:""}</td><td>${typeCell}</td><td class="amount">${amountCell}</td><td class="amount"><strong>${money(e.balance)}</strong></td><td class="compact">${e.direction==="income"
- ?`<button type="button" class="success forecast-action" data-action="received" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">💰 Received</button><button type="button" class="danger clear-row forecast-action" data-action="clear" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}" title="Clear without changing balance">✕</button>`
- :`<button type="button" class="success forecast-action" data-action="paid" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">✅ Paid</button><button type="button" class="secondary forecast-action" data-action="skip" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">⏭ Skip</button><button type="button" class="secondary forecast-action" data-action="move" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">📅 Move</button><button type="button" class="danger clear-row forecast-action" data-action="clear" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}" title="Clear without changing balance">✕</button>`}</td></tr>`;
+ ?`<button type="button" class="success forecast-action" data-action="received" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">💰 Receive +${money(e.amount)}</button><button type="button" class="danger clear-row forecast-action" data-action="clear" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}" title="Clear without changing balance">✕</button>`
+ :`<button type="button" class="success forecast-action" data-action="paid" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">✅ Pay −${money(e.amount)}</button><button type="button" class="secondary forecast-action" data-action="skip" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">⏭ Skip</button><button type="button" class="secondary forecast-action" data-action="move" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">📅 Move</button><button type="button" class="danger clear-row forecast-action" data-action="clear" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}" title="Clear without changing balance">✕</button>`}</td></tr>`;
 }).join("");
  includeWindfall.checked=state.includeWindfall;
  includeOptional.checked=state.includeOptional;
@@ -994,6 +1062,17 @@ function drawChart(events){
  ctx.strokeStyle="#e5e7eb";for(let i=0;i<5;i++){let yy=p+i*(H-2*p)/4;ctx.beginPath();ctx.moveTo(p,yy);ctx.lineTo(W-p,yy);ctx.stroke()}
  [[state.floor,"#b45309",`Floor ${money(state.floor)}`],[hard,"#b91c1c",`SpotMe ${money(hard)}`]].forEach(([v,col,label])=>{ctx.strokeStyle=col;ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(p,y(v));ctx.lineTo(W-p,y(v));ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=col;ctx.font="12px sans-serif";ctx.fillText(label,p+4,y(v)-5)});
  ctx.strokeStyle="#4f46e5";ctx.lineWidth=3;ctx.beginPath();pts.forEach((pt,i)=>i?ctx.lineTo(x(i),y(pt.balance)):ctx.moveTo(x(i),y(pt.balance)));ctx.stroke();pts.forEach((pt,i)=>{ctx.fillStyle=pt.balance<0?"#b91c1c":pt.balance<state.floor?"#b45309":"#0f766e";ctx.beginPath();ctx.arc(x(i),y(pt.balance),3.4,0,Math.PI*2);ctx.fill()})
+}
+
+
+function showBalanceAction(kind,amount,newBalance,label){
+ const note=document.getElementById("balanceActionNote");
+ if(!note)return;
+ const n=Math.abs(Number(amount)||0);
+ note.className=`balance-action-note ${kind||"neutral"}`;
+ if(kind==="income")note.textContent=`+${money(n)} ${label||"received"} → ${money(newBalance)} available`;
+ else if(kind==="expense")note.textContent=`−${money(n)} ${label||"paid"} → ${money(newBalance)} available`;
+ else note.textContent=`${label||"Balance recorded"} · ${money(newBalance)} available`;
 }
 
 function syncBalanceInputs(){
@@ -1218,30 +1297,77 @@ function addRecurring(){
 }
 function setException(id,date,patch){let key=occurrenceKey(id,date),ex=state.exceptions.find(x=>x.key===key);if(!ex){ex={key,id,sourceDate:date};state.exceptions.push(ex)}Object.assign(ex,patch);save();renderAll()}
 
+let activeReceived={id:null,sourceDate:null};
+
 function receiveIncome(id,date){
- const item=[...state.recurring,...state.oneTime].find(x=>x.id===id);
- if(item?.transferFromSavings){
-  const ex=getException(id,date);
-  const amount=Number(ex?.amount??item.amount??0);
-  if(!ex?.savingsAdjusted){
-   if(amount>Number(state.savingsBalance||0))return alert(`Savings only has ${money(state.savingsBalance||0)} available.`);
-   if(!confirm(`Complete this savings transfer?\n\nChecking: +${money(amount)}\nSavings: −${money(amount)}`))return;
-   state.currentBalance=Number(state.currentBalance||0)+amount;
-   state.savingsBalance=Math.max(0,Number(state.savingsBalance||0)-amount);
-   state.balanceAsOf=date;
-   setException(id,date,{status:"received",receivedAt:iso(new Date()),savingsAdjusted:true});
-   save();renderAll();return;
-  }
+ const item=sourceItem(id);
+ if(!item)return alert("Could not find this income item. Refresh the page and try again.");
+ const existing=getException(id,date);
+ if(existing?.status==="received"||existing?.status==="reconciled")return;
+
+ // Savings transfers remain a two-account action.
+ if(item.transferFromSavings){
+  const amount=occurrenceAmount(item,date);
+  if(amount>Number(state.savingsBalance||0))return alert(`Savings only has ${money(state.savingsBalance||0)} available.`);
+  if(!confirm(`Complete this savings transfer?\n\nChecking: +${money(amount)}\nSavings: −${money(amount)}`))return;
+  state.currentBalance=Number(state.currentBalance||0)+amount;
+  state.savingsBalance=Math.max(0,Number(state.savingsBalance||0)-amount);
+  state.balanceAsOf=iso(new Date());
+  setException(id,date,{status:"received",receivedAt:iso(new Date()),savingsAdjusted:true,balanceAdjusted:true});
+  syncBalanceInputs();
+  showBalanceAction("income",amount,state.currentBalance,"transferred in");
+  save();renderAll();
+  return;
  }
- const entered=prompt(`${item?.name||"Income"} received.\n\nEnter your checking balance AFTER this deposit and any transactions already reflected in your account:`, state.currentBalance);
- if(entered===null)return;
- const amount=Number(entered);
- if(Number.isNaN(amount))return alert("Enter a valid checking balance.");
- state.currentBalance=amount;
- state.balanceAsOf=date;
- setException(id,date,{status:"received",receivedAt:iso(new Date())});
+
+ activeReceived={id,sourceDate:date};
+ const amount=occurrenceAmount(item,date);
+ const modal=document.getElementById("receivedModal");
+ const desc=document.getElementById("receivedModalDescription");
+ if(!modal||!desc){
+  if(confirm(`Receive ${item.name} for ${money(amount)} and add it to available checking?`))return confirmReceivedAndAdd();
+  return;
+ }
+ desc.textContent=`${item.name||"Income"} · +${money(amount)} to checking`;
+ modal.classList.add("show");
+}
+
+function closeReceivedModal(){
+ const modal=document.getElementById("receivedModal");
+ if(modal)modal.classList.remove("show");
+ activeReceived={id:null,sourceDate:null};
+}
+
+function confirmReceivedAndAdd(){
+ const {id,sourceDate}=activeReceived;
+ const item=sourceItem(id);
+ if(!item)return closeReceivedModal();
+ const existing=getException(id,sourceDate);
+ if(existing?.status==="received"||existing?.status==="reconciled")return closeReceivedModal();
+ const amount=occurrenceAmount(item,sourceDate);
+ state.currentBalance=Number(state.currentBalance||0)+amount;
+ state.balanceAsOf=iso(new Date());
+ setException(id,sourceDate,{status:"received",receivedAt:iso(new Date()),balanceAdjusted:true});
+ syncBalanceInputs();
+ const newBalance=state.currentBalance;
+ closeReceivedModal();
  save();
  renderAll();
+ showBalanceAction("income",amount,newBalance,"received");
+}
+
+function confirmReceivedAlreadyReflected(){
+ const {id,sourceDate}=activeReceived;
+ const item=sourceItem(id);
+ if(!id||!item)return closeReceivedModal();
+ const existing=getException(id,sourceDate);
+ if(existing?.status==="received"||existing?.status==="reconciled")return closeReceivedModal();
+ setException(id,sourceDate,{status:"received",receivedAt:iso(new Date()),balanceAdjusted:false});
+ const current=Number(state.currentBalance||0);
+ closeReceivedModal();
+ save();
+ renderAll();
+ showBalanceAction("neutral",0,current,"Received · already reflected");
 }
 
 function markPaid(id,date){
@@ -1257,7 +1383,7 @@ function markPaid(id,date){
    const already=confirm(`${item.name} · ${money(amount)}\n\nIs this payment ALREADY reflected in your reconciled checking balance?\n\nOK = already reflected\nCancel = subtract it now`);
    return already?confirmPaidAlreadyReflected():confirmPaidAndSubtract();
   }
-  desc.textContent=`${item.name||"Payment"} · ${money(amount)}`;
+  desc.textContent=`${item.name||"Payment"} · −${money(amount)} from checking`;
   modal.classList.add("show");
  }catch(err){
   console.error("Paid action failed",err);
@@ -1278,21 +1404,27 @@ function confirmPaidAndSubtract(){
  if(existing?.status==="paid"||existing?.status==="reconciled")return closePaidModal();
  const amount=Number(occurrenceAmount(item,sourceDate)||0);
  state.currentBalance=Number(state.currentBalance||0)-amount;
+ state.balanceAsOf=iso(new Date());
  setException(id,sourceDate,{status:"paid",paidAt:iso(new Date()),balanceAdjusted:true});
  syncBalanceInputs();
+ const newBalance=state.currentBalance;
  closePaidModal();
  save();
  renderAll();
+ showBalanceAction("expense",amount,newBalance,"paid");
 }
 function confirmPaidAlreadyReflected(){
  const {id,sourceDate}=activePaid;
- if(!id)return closePaidModal();
+ const item=sourceItem(id);
+ if(!id||!item)return closePaidModal();
  const existing=getException(id,sourceDate);
  if(existing?.status==="paid"||existing?.status==="reconciled")return closePaidModal();
  setException(id,sourceDate,{status:"paid",paidAt:iso(new Date()),balanceAdjusted:false});
+ const current=Number(state.currentBalance||0);
  closePaidModal();
  save();
  renderAll();
+ showBalanceAction("neutral",0,current,"Paid · already reflected");
 }
 
 
@@ -1524,7 +1656,60 @@ function buildRescuePlan(){
 }
 
 function applyPaycheckPlan(){if(!plannerItems.length)return;let selected=plannerItems.filter(x=>x.selected);if(!confirm(`Apply ${selected.length} planned allocations to the forecast? This changes occurrence amounts but does not mark them paid.`))return;selected.forEach(x=>setException(x.id,x.sourceDate,{amount:x.planAmount}));showPanel("forecast")}
-function renderTimeline(){let days=Number(timelineRange?.value||90),events=buildForecast(days);timelineList.innerHTML=`<div class="timeline-item"><div class="timeline-date">${new Date((state.balanceAsOf||state.startDate)+"T12:00:00").toLocaleDateString()}</div><div>Reconciled checking balance</div><div class="timeline-balance">${money(state.currentBalance)}</div></div>`+events.map(e=>`<div class="timeline-item ${e.balance<0?"negative":""}"><div class="timeline-date">${new Date(e.eventDate+"T12:00:00").toLocaleDateString()}</div><div><strong>${esc(e.name)}</strong>${e.payee?`<div class="note">Payee: ${esc(e.payee)}</div>`:""}<div class="note">${e.direction==="income"?"Deposit":"Payment"} ${money(e.amount)}</div></div><div class="timeline-balance">${money(e.balance)}</div></div>`).join("")}
+
+function historicalLedgerEvents(days=365){
+ const today=parseDate(iso(new Date()));
+ const earliest=new Date(today.getTime()-Math.max(1,Number(days||365))*864e5);
+ const rows=[];
+ (state.exceptions||[]).forEach(ex=>{
+  if(!["paid","received","reconciled"].includes(ex.status))return;
+  const item=sourceItem(ex.id);
+  if(!item)return;
+  const sourceDate=ex.sourceDate||String(ex.key||"").split("@").slice(1).join("@");
+  if(!sourceDate)return;
+  const completedStamp=ex.paidAt||ex.receivedAt||ex.reconciledAt||sourceDate;
+  const completedDate=String(completedStamp).slice(0,10);
+  const d=parseDate(completedDate);
+  if(d<earliest||d>today)return;
+  rows.push({
+   id:ex.id,
+   sourceDate,
+   eventDate:ex.date||sourceDate,
+   completedDate,
+   name:item.name||"Item",
+   payee:item.payee||"",
+   direction:item.direction||"expense",
+   transferFromSavings:!!item.transferFromSavings,
+   amount:Number(ex.amount ?? item.amount ?? 0)||0,
+   status:ex.status,
+   balanceAdjusted:ex.balanceAdjusted,
+   completedAt:completedStamp
+  });
+ });
+ return rows.sort((a,b)=>b.completedDate.localeCompare(a.completedDate)||(b.completedAt||"").localeCompare(a.completedAt||""));
+}
+function historicalStatusLabel(e){
+ if(e.transferFromSavings&&e.status==="received")return "Transfer completed";
+ if(e.status==="received")return "Received";
+ if(e.status==="paid"&&e.balanceAdjusted===false)return "Paid · already reflected";
+ if(e.status==="paid")return "Paid";
+ if(e.status==="reconciled")return "Reconciled";
+ return "Completed";
+}
+
+function renderTimeline(){
+ const days=Number(timelineRange?.value||90);
+ const events=historicalLedgerEvents(days);
+ if(!events.length){
+  timelineList.innerHTML=`<div class="timeline-item"><div class="timeline-date">—</div><div><strong>No completed activity yet</strong><div class="note">Items marked Paid, Received, or Reconciled will appear here.</div></div><div class="timeline-balance">History</div></div>`;
+  return;
+ }
+ timelineList.innerHTML=events.map(e=>{
+  const sign=e.direction==="income"?"+":"−";
+  const label=historicalStatusLabel(e);
+  return `<div class="timeline-item historical"><div class="timeline-date">${new Date(e.completedDate+"T12:00:00").toLocaleDateString()}</div><div><strong>${esc(e.name)}</strong>${e.payee?`<div class="note">Payee: ${esc(e.payee)}</div>`:""}<div class="note">${label}${e.eventDate!==e.completedDate?` · scheduled ${new Date(e.eventDate+"T12:00:00").toLocaleDateString()}`:""}</div></div><div class="timeline-balance">${sign}${money(Math.abs(e.amount))}</div></div>`;
+ }).join("");
+}
 
 function updateWindfallFromGoals(){
  let item=(state.recurring||[]).find(x=>x.windfall||x.id==="windfall");
@@ -1843,6 +2028,6 @@ renderAll();
 
 window.addEventListener("resize",closeForecastGridGap);
 </script>
-<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.22</div>
+<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.25</div>
 </body>
 </html>
