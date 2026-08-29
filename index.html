@@ -320,6 +320,99 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 @media(max-width:900px){.quick-one-time .formgrid{grid-template-columns:1fr 1fr}.quick-one-time .formgrid>div:first-child{grid-column:1/-1}}
 @media(max-width:560px){.quick-one-time .formgrid{grid-template-columns:1fr}.quick-one-time .formgrid>div:first-child{grid-column:auto}}
 
+
+/* Forecast Type: true radio controls, not pills */
+.cash-direction-toggle{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:5px;
+  white-space:nowrap;
+}
+.cash-direction-toggle label{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-height:26px;
+  padding:0;
+  margin:0;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+}
+.cash-direction-toggle input[type="radio"]{
+  appearance:auto !important;
+  -webkit-appearance:radio !important;
+  width:16px !important;
+  height:16px !important;
+  min-height:16px !important;
+  min-width:16px !important;
+  margin:0 !important;
+  padding:0 !important;
+  accent-color:var(--accent);
+}
+.cash-direction-toggle .cash-out{color:var(--bad)}
+.cash-direction-toggle .cash-in{color:var(--good)}
+
+/* Forecast actions: compact single-line toolbar */
+#ledgerBody td.compact{
+  white-space:nowrap;
+  min-width:0;
+}
+#ledgerBody td.compact .forecast-action{
+  min-height:34px !important;
+  height:34px;
+  padding:5px 8px !important;
+  margin:0 3px 0 0;
+  border-radius:10px;
+  font-size:12px;
+  line-height:1;
+  white-space:nowrap;
+  vertical-align:middle;
+}
+#ledgerBody td.compact .forecast-action.success{
+  padding-left:9px !important;
+  padding-right:9px !important;
+}
+#ledgerBody td.compact .clear-row{
+  width:34px !important;
+  min-width:34px !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 !important;
+  margin-right:0;
+  font-size:15px;
+  line-height:32px;
+}
+#ledgerBody td.compact{
+  display:table-cell;
+}
+@media(min-width:701px){
+  #ledgerBody td.compact{
+    min-width:330px;
+  }
+}
+
+
+.planner-paid-check{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  white-space:nowrap;
+  font-size:13px;
+  font-weight:700;
+}
+.planner-paid-check input[type="checkbox"]{
+  width:20px !important;
+  height:20px !important;
+  min-height:20px !important;
+  margin:0;
+}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -534,7 +627,7 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
     </div>
     <div style="overflow:auto;margin-top:10px">
       <table>
-        <thead><tr><th>Item</th><th>Amount</th><th>Charge date</th><th>Use existing household reserve?</th><th>Move</th><th></th></tr></thead>
+        <thead><tr><th>Item</th><th>Amount</th><th>Charge date</th><th>Use existing household reserve?</th><th>Paid / already out?</th><th>Move</th><th></th></tr></thead>
         <tbody id="tripPlannerBody"></tbody>
       </table>
     </div>
@@ -849,10 +942,10 @@ function ledgerAmountEditor(item){
 function ledgerDirectionEditor(item){
  if(!item)return "";
  const id=esc(item.id);
- return `<div class="cash-direction-toggle" aria-label="Cash flow direction for ${esc(item.name||"item")}">
-  <label class="cash-out"><input type="radio" name="dir_${id}" value="expense" ${item.direction==="expense"?"checked":""} onchange="updateLedgerField('${id}','direction','expense')">💸 Out</label>
-  <label class="cash-in"><input type="radio" name="dir_${id}" value="income" ${item.direction==="income"?"checked":""} onchange="updateLedgerField('${id}','direction','income')">💰 In</label>
- </div>`;
+ return `<fieldset class="cash-direction-toggle" aria-label="Cash flow direction for ${esc(item.name||"item")}">
+  <label class="cash-out"><input type="radio" name="dir_${id}" value="expense" ${item.direction==="expense"?"checked":""} onchange="updateLedgerField('${id}','direction','expense')"><span>💸 Out</span></label>
+  <label class="cash-in"><input type="radio" name="dir_${id}" value="income" ${item.direction==="income"?"checked":""} onchange="updateLedgerField('${id}','direction','income')"><span>💰 In</span></label>
+ </fieldset>`;
 }
 function payeeEditor(item,compact=false){
  if(!item)return "";
@@ -874,6 +967,7 @@ function migrate(s){
  s.autopayWatch=s.autopayWatch||defaultAutopayWatch();
  s.tripPlan=s.tripPlan||clone(BASELINE.tripPlan);
  s.tripPlan.items=s.tripPlan.items||clone(BASELINE.tripPlan.items);
+ s.tripPlan.items.forEach(x=>{if(x.paid==null)x.paid=false});
  s.bigPurchasePlan=s.bigPurchasePlan||clone(BASELINE.bigPurchasePlan);
  s.bigPurchasePlan.items=s.bigPurchasePlan.items||clone(BASELINE.bigPurchasePlan.items);
  if(s.spotMeLimit==null)s.spotMeLimit=200;
@@ -1078,8 +1172,8 @@ function renderForecast(){
  const typeCell=item&&!e.transferFromSavings&&!e.windfall?ledgerDirectionEditor(item):`<span class="pill ${e.transferFromSavings?"income":e.windfall?"windfall":e.direction}">${e.transferFromSavings?"transfer":e.windfall?"windfall":e.direction}</span>`;
  const amountCell=item?ledgerAmountEditor(item):`${e.direction==="income"?"+":"−"}${money(e.amount)}`;
  return `<tr class="${e.balance<0?"negative":e.balance<state.floor?"low":""}"><td>${new Date(e.eventDate+"T12:00:00").toLocaleDateString()}</td><td>${itemCell}${e.eventDate!==e.sourceDate?`<div class="note">Moved from ${new Date(e.sourceDate+"T12:00:00").toLocaleDateString()}${getException(e.id,e.sourceDate)?.moveReason?` · ${getException(e.id,e.sourceDate).moveReason}`:""}</div>`:""}</td><td>${typeCell}</td><td class="amount">${amountCell}</td><td class="amount"><strong>${money(e.balance)}</strong></td><td class="compact">${e.direction==="income"
- ?`<button type="button" class="success forecast-action" data-action="received" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">💰 Receive +${money(e.amount)}</button><button type="button" class="danger clear-row forecast-action" data-action="clear" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}" title="Clear without changing balance">✕</button>`
- :`<button type="button" class="success forecast-action" data-action="paid" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">✅ Pay −${money(e.amount)}</button><button type="button" class="secondary forecast-action" data-action="skip" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">⏭ Skip</button><button type="button" class="secondary forecast-action" data-action="move" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">📅 Move</button><button type="button" class="danger clear-row forecast-action" data-action="clear" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}" title="Clear without changing balance">✕</button>`}</td></tr>`;
+ ?`<button type="button" class="success forecast-action" data-action="received" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">💰 +${money(e.amount)} Receive</button><button type="button" class="danger clear-row forecast-action" data-action="clear" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}" title="Clear without changing balance">✕</button>`
+ :`<button type="button" class="success forecast-action" data-action="paid" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">✅ −${money(e.amount)} Pay</button><button type="button" class="secondary forecast-action" data-action="skip" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">⏭ Skip</button><button type="button" class="secondary forecast-action" data-action="move" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}">📅 Move</button><button type="button" class="danger clear-row forecast-action" data-action="clear" data-id="${esc(e.id)}" data-date="${esc(e.sourceDate)}" title="Clear without changing balance">✕</button>`}</td></tr>`;
 }).join("");
  includeWindfall.checked=state.includeWindfall;
  includeOptional.checked=state.includeOptional;
@@ -1808,16 +1902,17 @@ function editGoal(id){let g=state.goals.find(x=>x.id===id);let saved=prompt("Cur
 
 
 function tripPlanTotalValue(){return (state.tripPlan?.items||[]).reduce((s,x)=>s+(Number(x.amount)||0),0)}
+function tripPlanPaidValue(){return (state.tripPlan?.items||[]).filter(x=>x.paid).reduce((s,x)=>s+(Number(x.amount)||0),0)}
 function bigPurchasePlanTotal(){return (state.bigPurchasePlan?.items||[]).reduce((s,x)=>s+(Number(x.amount)||0),0)}
 function syncLinkedPlannerGoals(){
  const vacation=(state.goals||[]).find(g=>g.id==="vacation");
  const big=(state.goals||[]).find(g=>g.id==="bigitems");
- if(vacation)vacation.target=tripPlanTotalValue();
+ if(vacation){vacation.target=tripPlanTotalValue();vacation.saved=tripPlanPaidValue();}
  if(big)big.target=bigPurchasePlanTotal();
 }
 function syncTripPlanToForecast(){
  if(!state.tripPlan?.adopted)return;
- const valid=(state.tripPlan.items||[]).filter(x=>Number(x.amount)>0&&x.date);
+ const valid=(state.tripPlan.items||[]).filter(x=>Number(x.amount)>0&&x.date&&!x.paid);
  const ids=new Set(valid.map(x=>"adoptedtrip_"+x.id));
  state.oneTime=(state.oneTime||[]).filter(x=>!x.tripPlanSource||ids.has(x.id));
  state.exceptions=(state.exceptions||[]).filter(e=>!String(e.id||"").startsWith("adoptedtrip_")||ids.has(e.id));
@@ -1854,7 +1949,7 @@ function tripPlannerItem(id){return (state.tripPlan?.items||[]).find(x=>x.id===i
 function updateTripPlannerItem(id,field,value){
  const x=tripPlannerItem(id);if(!x)return;
  if(field==="amount")x.amount=Math.max(0,Number(value)||0);
- else if(field==="useReserve")x.useReserve=!!value;
+ else if(field==="useReserve"||field==="paid")x[field]=!!value;
  else x[field]=value;
  syncTripPlanToForecast();syncLinkedPlannerGoals();save();
  renderTripPlanner();renderForecast();renderTimeline();renderGoals();
@@ -1862,7 +1957,7 @@ function updateTripPlannerItem(id,field,value){
 function addTripPlannerItem(){
  state.tripPlan=state.tripPlan||clone(BASELINE.tripPlan);
  state.tripPlan.items=state.tripPlan.items||[];
- state.tripPlan.items.push({id:"tp_"+Date.now(),name:"New trip expense",amount:0,date:"",useReserve:false});
+ state.tripPlan.items.push({id:"tp_"+Date.now(),name:"New trip expense",amount:0,date:"",useReserve:false,paid:false});
  save();renderTripPlanner();
 }
 function deleteTripPlannerItem(id){
@@ -1907,10 +2002,14 @@ function renderTripPlanner(){
   <td><input type="number" min="0" step=".01" value="${Number(x.amount)||0}" onchange="updateTripPlannerItem('${x.id}','amount',this.value)"></td>
   <td><input type="date" value="${x.date||""}" onchange="updateTripPlannerItem('${x.id}','date',this.value)"></td>
   <td><label style="display:flex;gap:7px;align-items:center"><input type="checkbox" ${x.useReserve?"checked":""} onchange="updateTripPlannerItem('${x.id}','useReserve',this.checked)"> Yes</label></td>
+  <td><label class="planner-paid-check"><input type="checkbox" ${x.paid?"checked":""} onchange="updateTripPlannerItem('${x.id}','paid',this.checked)"> <span>${x.paid?"Paid":"No"}</span></label></td>
   <td><div class="trip-move-controls"><button class="secondary trip-move-btn" ${i===0?"disabled":""} onclick="moveTripPlannerItem('${x.id}',-1)">Move up</button><button class="secondary trip-move-btn" ${i===items.length-1?"disabled":""} onclick="moveTripPlannerItem('${x.id}',1)">Move down</button></div></td>
   <td><button class="danger" onclick="deleteTripPlannerItem('${x.id}')">Delete</button></td>
- </tr>`).join(""):`<tr><td colspan="6" class="note">No trip items yet. Add one to start planning.</td></tr>`;
+ </tr>`).join(""):`<tr><td colspan="7" class="note">No trip items yet. Add one to start planning.</td></tr>`;
  const total=items.reduce((sum,x)=>sum+(Number(x.amount)||0),0);
+ const paidTotal=items.filter(x=>x.paid).reduce((sum,x)=>sum+(Number(x.amount)||0),0);
+ const remainingTotal=Math.max(0,total-paidTotal);
+ const paidCount=items.filter(x=>x.paid).length;
  const adopted=adoptedTripItems();
  tripPlanTotal.textContent=money(total);
  tripAdoptedCount.textContent=String(adopted.length);
@@ -1919,8 +2018,8 @@ function renderTripPlanner(){
  const invalid=items.filter(x=>(Number(x.amount)>0&&!x.date)||(x.date&&!Number(x.amount))).length;
  const reserve=items.filter(x=>x.useReserve).reduce((sum,x)=>sum+(Number(x.amount)||0),0);
  tripAdoptionStatus.innerHTML=state.tripPlan.adopted
-  ?`<strong>${adopted.length}</strong> trip item${adopted.length===1?" is":"s are"} currently in the household forecast. Edit this template freely; names, amounts and dates stay synced to the forecast automatically.${invalid?` <strong>${invalid}</strong> incomplete row${invalid===1?" is":"s are"} ignored.`:""}`
-  :`This plan is not affecting your household forecast yet.${reserve?` ${money(reserve)} is marked as replacing existing household reserves.`:""}${invalid?` ${invalid} incomplete row${invalid===1?" is":"s are"} waiting for both an amount and charge date.`:""}`;
+  ?`<strong>${adopted.length}</strong> outstanding trip item${adopted.length===1?" is":"s are"} currently in Forecast. <strong>${paidCount}</strong> item${paidCount===1?" is":"s are"} marked paid/already out (${money(paidTotal)}), so ${paidCount===1?"it is":"they are"} not forecast again. Remaining trip cost: <strong>${money(remainingTotal)}</strong>. Edits stay synced automatically.${invalid?` <strong>${invalid}</strong> incomplete row${invalid===1?" is":"s are"} ignored.`:""}`
+  :`This plan is not affecting your household forecast yet. ${paidCount?`${money(paidTotal)} is already paid/already out and will stay excluded when you adopt the plan. `:""}Outstanding trip cost: <strong>${money(remainingTotal)}</strong>.${reserve?` ${money(reserve)} is marked as replacing existing household reserves.`:""}${invalid?` ${invalid} incomplete row${invalid===1?" is":"s are"} waiting for both an amount and charge date.`:""}`;
 }
 
 
@@ -2125,6 +2224,6 @@ renderAll();
 
 window.addEventListener("resize",closeForecastGridGap);
 </script>
-<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.26</div>
+<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.28</div>
 </body>
 </html>
