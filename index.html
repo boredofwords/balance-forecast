@@ -718,6 +718,24 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
   border:0 !important;
 }
 
+
+/* FIX 44.35: stack Quick Add Out/In choices */
+#forecast .quick-direction{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:flex-start !important;
+  justify-content:center !important;
+  gap:9px !important;
+  min-height:64px !important;
+  width:auto !important;
+}
+#forecast .quick-direction label{
+  display:flex !important;
+  align-items:center !important;
+  gap:7px !important;
+  white-space:nowrap !important;
+}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -2545,6 +2563,6 @@ renderAll();
 
 window.addEventListener("resize",closeForecastGridGap);
 </script>
-<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.34</div>
+<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.35</div>
 </body>
 </html>
