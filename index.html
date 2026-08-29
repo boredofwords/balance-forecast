@@ -551,6 +551,30 @@ header{padding-top:calc(18px + env(safe-area-inset-top))}
 #forecast .quick-direction .out{color:var(--bad) !important}
 #forecast .quick-direction .in{color:var(--good) !important}
 
+
+/* FIX 44.32: Quarterly Windfall uses a stacked layout at all viewport sizes */
+#forecast .forecast-scenario-card .windfall-fields,
+#forecast .forecast-scenario-card .quarterly-windfall-fields,
+#forecast .forecast-scenario-card .grid.two.windfall-fields,
+#forecast .forecast-scenario-card .grid.two.quarterly-windfall-fields{
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  gap:10px !important;
+  align-items:stretch !important;
+}
+#forecast #scenarioWindfallAmount,
+#forecast #scenarioWindfallDate{
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  box-sizing:border-box !important;
+}
+#forecast .forecast-scenario-card .windfall-fields > div,
+#forecast .forecast-scenario-card .quarterly-windfall-fields > div{
+  min-width:0 !important;
+  width:100% !important;
+}
+
 </style>
 
 <link rel="manifest" href="./manifest.webmanifest">
@@ -2371,6 +2395,6 @@ renderAll();
 
 window.addEventListener("resize",closeForecastGridGap);
 </script>
-<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.31</div>
+<div id="buildMarker" style="text-align:center;font-size:11px;opacity:.55;padding:8px 0 2px">Template build 44.32</div>
 </body>
 </html>
